@@ -1,0 +1,28 @@
+<?php
+// $Id$
+
+/**
+ * Implementation of hook_schema().
+ */
+function nodeaccess_nodereference_schema() {
+  module_load_install('node');
+  $node_schema = node_schema();
+  $schema['nodeaccess_nodereference'] = $node_schema['node_access'];
+  return $schema;
+}
+
+/**
+ * Implementation of hook_install().
+ */
+function nodeaccess_nodereference_install() {
+  // Create tables.
+  drupal_install_schema('nodeaccess_nodereference');
+}
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function nodeaccess_nodereference_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('nodeaccess_nodereference');
+}
