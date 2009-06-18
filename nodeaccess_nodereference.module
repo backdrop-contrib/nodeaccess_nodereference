@@ -146,7 +146,7 @@ function nodeaccess_nodereference_node_access_records($node) {
                 foreach ($node->$field['field_name'] as $nodereference) {
                   if ($nodereference['nid']) {
                     $reference = node_load($nodereference['nid']);
-                    $user_account = node_load($uid);
+                    $user_account = user_load($uid);
                     $view = $data['view'] ? nodeaccess_nodereference_node_access('view', $reference, $user_account) : FALSE;
                     $update = $data['update'] ? nodeaccess_nodereference_node_access('update', $reference, $user_account) : FALSE;
                     $delete = $data['delete'] ? nodeaccess_nodereference_node_access('delete', $reference, $user_account) : FALSE;
@@ -339,7 +339,7 @@ function nodeaccess_nodereference_acquire_grants($node) {
  * Build SQL to fetch nodes that have nodereferences.
  */
 function nodeaccess_nodereference_fetch_nodes_sql() {
-  $sql = "SELECT nid FROM {node} n ";
+  $sql = "SELECT n.nid FROM {node} n ";
   $fields = content_fields();
   $joins = array();
   $wheres = array();
