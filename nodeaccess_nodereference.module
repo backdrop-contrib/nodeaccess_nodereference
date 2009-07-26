@@ -7,10 +7,8 @@
  */
 function nodeaccess_nodereference_init() {
   if (node_access_needs_rebuild() && !node_access_nodereference_needs_rebuild()) {
-    if (!node_access_nodereference_needs_rebuild()) {
-      node_access_nodereference_needs_rebuild(TRUE);
-      nodeaccess_nodereference_table();
-    }
+    node_access_nodereference_needs_rebuild(TRUE);
+    nodeaccess_nodereference_table();
   }
   elseif (!node_access_needs_rebuild() && node_access_nodereference_needs_rebuild()) {
     // rebuild all the nodes with a node reference affected by this module - but only using this module's references.
@@ -77,7 +75,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
  * Implementation of hook_form-FORM-ID_alter().
  */
 function nodeaccess_nodereference_form_content_field_edit_form_alter(&$form, $form_state) {
-  if ($form['#field']['type'] == "nodereference") {
+  if ($form['#field']['type'] == 'nodereference') {
     $variable = 'nodeaccess_nodereference_'. $form['#field']['field_name'] .'_'. $form['#field']['type_name'];
     $data = variable_get($variable, array('view' => 0, 'update' => 0, 'delete' => 0));
 
@@ -131,54 +129,98 @@ function nodeaccess_nodereference_content_field_edit_form_submit($form, &$form_s
  * Implementation of hook_node_access_records().
  */
 function nodeaccess_nodereference_node_access_records($node) {
+  // first ensure we only execute this during the custom rebuild, not the drupal rebuild.
   if (!node_access_nodereference_needs_rebuild()) {
+    // create an array of grants
     $grants = array();
-    $info = content_fields(NULL, $node->type);
+    // grab some info about this content type from cck
+    $content_types = content_types($node->type);
+    // pull out the fields settings
+    $fields = &$content_types['fields'];
+    // get a list of all user IDs on the site
     $uids = nodeaccess_nodereference_users();
+    // set priority according to config
     $priority = variable_get('nodeaccess_nodereference_priority', 0);
-    if (is_array($info)) {
+    // ensure $fields is an array
+    if (is_array($fields)) {
+      
+      // Go through each user.
       foreach ($uids as $uid) {
-        foreach ($info as $field) {
-          if ($field['type'] == 'nodereference') {
-            $variable = 'nodeaccess_nodereference_'. $field['field_name'] .'_'. $field['type_name'];
-            $data = variable_get($variable, array('view' => 0, 'update' => 0, 'delete' => 0));
-            if (($data['view'] || $data['update'] || $data['delete']) && is_array($node->$field['field_name'])) {
-                foreach ($node->$field['field_name'] as $nodereference) {
-                  if ($nodereference['nid']) {
-                    $reference = node_load($nodereference['nid']);
-                    $user_account = user_load($uid);
-                    $view = $data['view'] ? nodeaccess_nodereference_node_access('view', $reference, $user_account) : FALSE;
-                    $update = $data['update'] ? nodeaccess_nodereference_node_access('update', $reference, $user_account) : FALSE;
-                    $delete = $data['delete'] ? nodeaccess_nodereference_node_access('delete', $reference, $user_account) : FALSE;
-                    if ($view || $update || $delete) {
-                      if (!isset($grants[$uid])) {
-                        $grants[$uid] = array(
-                          'realm' => 'nodeaccess_nodereference',
-                          'gid' => $uid,
-                          'priority' => $priority,
-                        );
-                      }
-                      if ($view) {
-                        $grants[$uid]['grant_view'] = 1;
-                      }
-                      if ($update) {
-                        $grants[$uid]['grant_update'] = 1;
-                      }
-                      if ($delete) {
-                        $grants[$uid]['grant_delete'] = 1;
-                      }
-                      if ($view && $update && $delete) {
-                        // nothing more we can do, break out of 2 foreach levels.
+        // Ensure they are not anonymous
+        if ($uid) {
+          // Load the user object
+          $user_account = user_load($uid);
+
+          // Deny this user access by default.
+          $view = FALSE;
+          $update = FALSE;
+          $delete = FALSE;
+
+          // Check each field in the node
+          foreach ($fields as $field) {
+            // Check if it is a nodereference
+            if ($field['type'] == 'nodereference') {
+              // Get the data about this nodereference field
+              $variable = 'nodeaccess_nodereference_'. $field['field_name'] .'_'. $node->type;
+              $data = variable_get($variable, array('view' => 0, 'update' => 0, 'delete' => 0));
+              // Check if this nodereference allows any access
+              if (($data['view'] || $data['update'] || $data['delete'])) {
+                // Foreach referenced node 
+                foreach ((array)$node->$field['field_name'] as $nodereference) {
+                  // Load the node
+                  $reference = node_load($nodereference['nid']);
+                  // Check if the node is loaded
+                  if ($reference) {
+                    // If user does not yet have view access, and this field
+                    // gives that kind of access, check if they should get it.
+                    if (!$view && $data['view']) {
+                      $view = nodeaccess_nodereference_node_access('view', $reference, $user_account);
+                    }
+                    // If user does not yet have update access, and this field
+                    // gives that kind of access, check if they should get it.
+                    if (!$update && $data['update']) {
+                      $update = nodeaccess_nodereference_node_access('update', $reference, $user_account);
+                    }
+                    // If user does not yet have delete access, and this field
+                    // gives that kind of access, check if they should get it.
+                    if (!$delete && $data['delete']) {
+                      $delete = nodeaccess_nodereference_node_access('delete', $reference, $user_account);
+                    }
+                    // If this user has been given all 3 types of access
+                    if ($view && $update && $delete) {
+                        // nothing more we can do for this user, break out of 2 foreach loops.
                         break 2;
-                      }
                     }
                   }
                 }
               }
             }
           }
-      }
 
+          // If this user has been given any access
+          if ($view || $update || $delete) {
+            // Create a grant for it
+            if (!isset($grants[$uid])) {
+              $grants[$uid] = array(
+                'realm' => 'nodeaccess_nodereference',
+                'gid' => $uid,
+                'priority' => $priority,
+              );
+            }
+            // and add the right settings to the grants
+            if ($view) {
+              $grants[$uid]['grant_view'] = 1;
+            }
+            if ($update) {
+              $grants[$uid]['grant_update'] = 1;
+            }
+            if ($delete) {
+              $grants[$uid]['grant_delete'] = 1;
+            }
+          }
+
+        }
+      }
     }
     if (!empty($grants)) {
       return $grants;
@@ -191,7 +233,7 @@ function nodeaccess_nodereference_node_access_records($node) {
  * Get all users on the site.
  */
 function nodeaccess_nodereference_users() {
-  $query = "SELECT uid FROM {users}";
+  $query = 'SELECT uid FROM {users}';
   $result = db_query($query);
   $users = array();
   while ($row = db_fetch_array($result)) {
@@ -290,8 +332,8 @@ function nodeaccess_nodereference_node_access($op, $node, $account = NULL) {
  * Copy node_access table to nodeaccess_nodereference table.
  */
 function nodeaccess_nodereference_table() {
-  db_query("DELETE FROM {nodeaccess_nodereference}");
-  db_query("INSERT INTO {nodeaccess_nodereference} SELECT * FROM {node_access}");
+  db_query('DELETE FROM {nodeaccess_nodereference}');
+  db_query('INSERT INTO {nodeaccess_nodereference} SELECT * FROM {node_access}');
 }
 
 /**
@@ -339,21 +381,21 @@ function nodeaccess_nodereference_acquire_grants($node) {
  * Build SQL to fetch nodes that have nodereferences.
  */
 function nodeaccess_nodereference_fetch_nodes_sql() {
-  $sql = "SELECT n.nid FROM {node} n ";
+  $sql = 'SELECT n.nid FROM {node} n ';
   $fields = content_fields();
   $joins = array();
   $wheres = array();
   foreach ((array)$fields as $field) {
     if ($field['type'] == 'nodereference') {
       if ($field['db_storage']) {
-        $joins[] = "INNER JOIN {content_type_". $field['type_name'] ."} ". 
-          $field['type_name'] ." ON n.vid = ". $field['type_name'] .".vid";
-        $where_field = $field['type_name'] .'.'. $field['field_name'];
+        $joins[] = 'INNER JOIN {content_type_'. $field['type_name'] .'} '. 
+          $field['type_name'] .' ON n.vid = '. $field['type_name'] .'.vid';
+        $where_field = $field['type_name'] .'.'. $field['field_name'] .'_nid';
       }
       else {
-        $joins[] = "INNER JOIN {content_". $field['field_name'] ."} ". 
-          $field['field_name'] ." ON n.vid = ". $field['field_name'] .".vid";
-        $where_field = $field['field_name'] .'.'. $field['field_name'];
+        $joins[] = 'INNER JOIN {content_'. $field['field_name'] .'} '. 
+          $field['field_name'] .' ON n.vid = '. $field['field_name'] .'.vid';
+        $where_field = $field['field_name'] .'.'. $field['field_name'] .'_nid';
       }
       $wheres[] = $where_field ." IS NOT NULL";
     }
