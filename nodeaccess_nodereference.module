@@ -6,13 +6,37 @@
  * Implementation of hook_init().
  */
 function nodeaccess_nodereference_init() {
-  if (node_access_needs_rebuild() && !node_access_nodereference_needs_rebuild()) {
-    node_access_nodereference_needs_rebuild(TRUE);
-    nodeaccess_nodereference_table();
-  }
-  elseif (!node_access_needs_rebuild() && node_access_nodereference_needs_rebuild()) {
-    // rebuild all the nodes with a node reference affected by this module - but only using this module's references.
-    nodeaccess_nodereference_rebuild();
+  if ($_GET['q'] != 'batch') {
+    if (nodeaccess_nodereference_status('needs_rebuild')) {
+      variable_set('nodeaccess_nodereference_messages', drupal_get_messages());
+      nodeaccess_nodereference_rebuild(TRUE);
+    }
+    elseif (variable_get('nodeaccess_nodereference_nodelist', FALSE)) {
+      nodeaccess_nodereference_status('doing_rebuild', TRUE);
+
+      // Process the next 20 nodes - we would *normally* only expect a single node here though.
+      $limit = variable_get('nodeaccess_nodereference_limit', 20);
+
+      for ($i = 0; $i < $limit; $i++) {
+        $list = variable_get('nodeaccess_nodereference_nodelist', array());
+        $nid = array_shift($list);
+        $loaded_node = node_load($nid, NULL, TRUE);
+        // To preserve database integrity, only aquire grants if the node
+        // loads successfully.
+        if (!empty($loaded_node)) {
+          nodeaccess_nodereference_acquire_grants($loaded_node);
+        }
+        if (empty($list)) {
+          variable_del('nodeaccess_nodereference_nodelist');
+          break;
+        }
+        else {
+          variable_set('nodeaccess_nodereference_nodelist', $list);
+        }
+      }
+
+      nodeaccess_nodereference_status('doing_rebuild', FALSE);
+    }
   }
 }
 
@@ -53,9 +77,15 @@ function nodeaccess_nodereference_admin_settings() {
     '#description' => t('If you are only using this access control module, you can safely ignore this. 
     If you are using multiple access control modules you can adjust the priority of this module.'),
   );
-  
-  // Add additional submit processing
-  $form['#submit'][] = 'nodeaccess_nodereference_admin_settings_submit';
+
+  $form['nodeaccess_nodereference_limit'] = array(
+    '#type' => 'textfield',
+    '#maxlength' => '10',
+    '#size' => '3',
+    '#title' => t('Max nodes to process in a single request'),
+    '#default_value' => variable_get('nodeaccess_nodereference_limit', 20),
+    '#description' => t('Sites with a lot of users may need to set this lower if problems occur.'),
+  );
 
   return system_settings_form($form);
 }
@@ -72,7 +102,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
 }
 
 /**
- * Implementation of hook_form-FORM-ID_alter().
+ * Implementation of hook_form_FORM_ID_alter().
  */
 function nodeaccess_nodereference_form_content_field_edit_form_alter(&$form, $form_state) {
   if ($form['#field']['type'] == 'nodereference') {
@@ -130,7 +160,7 @@ function nodeaccess_nodereference_content_field_edit_form_submit($form, &$form_s
  */
 function nodeaccess_nodereference_node_access_records($node) {
   // first ensure we only execute this during the custom rebuild, not the drupal rebuild.
-  if (!node_access_nodereference_needs_rebuild()) {
+  if (nodeaccess_nodereference_status('doing_rebuild')) {
     // create an array of grants
     $grants = array();
     // grab some info about this content type from cck
@@ -226,6 +256,11 @@ function nodeaccess_nodereference_node_access_records($node) {
       return $grants;
     }
   }
+  else {
+    $list = variable_get('nodeaccess_nodereference_nodelist', array());
+    $list[] = $node->nid;
+    variable_set('nodeaccess_nodereference_nodelist', $list);
+  }
   return NULL;
 }
 
@@ -244,17 +279,30 @@ function nodeaccess_nodereference_users() {
 
 /**
  * A version of node_access_needs_rebuild().
+ *
+ * @param $status_type
+ *   'need_rebuild' or 'doing_rebuild'.
+ * @param $status
+ *   TRUE, FALSE, or NULL
+ * @return
+ *   The status of the status type.
  */
-function node_access_nodereference_needs_rebuild($rebuild = NULL) {
-  if (!isset($rebuild)) {
-    return variable_get('nodeaccess_nodereference_needs_rebuild', FALSE);
+function nodeaccess_nodereference_status($status_type, $status = NULL) {
+  static $data = NULL;
+  if ((is_null($data[$status_type]) || !isset($data[$status_type])) && (!isset($status) || is_null($status))) {
+    $data[$status_type] = variable_get('nodeaccess_nodereference_'. $status_type, FALSE);
   }
-  elseif ($rebuild) {
-    variable_set('nodeaccess_nodereference_needs_rebuild', TRUE);
+  elseif (is_bool($status)) {
+    if ($status) {
+      $data[$status_type] = TRUE;
+      variable_set('nodeaccess_nodereference_'. $status_type, TRUE);
+    }
+    else {
+      $data[$status_type] = FALSE;
+      variable_del('nodeaccess_nodereference_'. $status_type);
+    }
   }
-  else {
-    variable_del('nodeaccess_nodereference_needs_rebuild');
-  }
+  return $data[$status_type];
 }
 
 /**
@@ -339,20 +387,116 @@ function nodeaccess_nodereference_table() {
 /**
  * A version of node_access_rebuild().
  */
-function nodeaccess_nodereference_rebuild(/*$batch_mode = FALSE*/) {
-  node_access_nodereference_needs_rebuild(FALSE);
-  // If not in 'safe mode', increase the maximum execution time.
-  if (!ini_get('safe_mode')) {
-    set_time_limit(240);
+function nodeaccess_nodereference_rebuild($batch_mode = FALSE) {
+  nodeaccess_nodereference_status('needs_rebuild', FALSE);
+  nodeaccess_nodereference_status('doing_rebuild', TRUE);
+
+  if ($batch_mode) {
+
+    // If not in 'safe mode', increase the maximum execution time.
+    if (!ini_get('safe_mode')) {
+      set_time_limit(240);
+    }
+    $result = db_query(nodeaccess_nodereference_fetch_nodes_sql());
+    $list = array();
+    while ($node = db_fetch_object($result)) {
+      $list[] = $node->nid;
+    }
+    variable_set('nodeaccess_nodereference_nodelist', $list);
+
+    $batch = array(
+      'title' => t('Rebuilding node reference access permissions'),
+      'operations' => array(
+        array('_nodeaccess_nodereference_rebuild_batch_operation', array()),
+      ),
+      'finished' => '_nodeaccess_nodereference_rebuild_batch_finished'
+    );
+    batch_set($batch);
+    batch_process('admin/content/node-settings');
   }
-  $result = db_query(nodeaccess_nodereference_fetch_nodes_sql());
-  while ($node = db_fetch_object($result)) {
-    $loaded_node = node_load($node->nid, NULL, TRUE);
+  else {
+    // If not in 'safe mode', increase the maximum execution time.
+    if (!ini_get('safe_mode')) {
+      set_time_limit(240);
+    }
+    $result = db_query(nodeaccess_nodereference_fetch_nodes_sql());
+    while ($node = db_fetch_object($result)) {
+      $loaded_node = node_load($node->nid, NULL, TRUE);
+      // To preserve database integrity, only aquire grants if the node
+      // loads successfully.
+      if (!empty($loaded_node)) {
+        nodeaccess_nodereference_acquire_grants($loaded_node);
+      }
+    }
+
+  }
+
+  if (!isset($batch)) {
+    nodeaccess_nodereference_status('doing_rebuild', FALSE);
+    drupal_set_message(t('Node reference access permissions have been rebuilt.'));
+    cache_clear_all();
+  }
+
+}
+
+/**
+ * A version of _node_access_rebuild_batch_operation().
+ */
+function _nodeaccess_nodereference_rebuild_batch_operation(&$context) {
+  if (empty($context['sandbox'])) {
+    // Initiate multistep processing.
+    $context['sandbox']['progress'] = 0;
+    //$context['sandbox']['current_node'] = 0;
+    $list = variable_get('nodeaccess_nodereference_nodelist', array());
+    $context['sandbox']['max'] = count($list);
+  }
+
+  // Process the next 20 nodes.
+  $limit = variable_get('nodeaccess_nodereference_limit', 20);
+
+  for ($i = 0; $i < $limit; $i++) {
+    $list = variable_get('nodeaccess_nodereference_nodelist', array());
+    $nid = array_shift($list);
+    $loaded_node = node_load($nid, NULL, TRUE);
     // To preserve database integrity, only aquire grants if the node
     // loads successfully.
     if (!empty($loaded_node)) {
       nodeaccess_nodereference_acquire_grants($loaded_node);
     }
+    $context['sandbox']['progress']++;
+    //$context['sandbox']['current_node'] = $loaded_node->nid;
+    if (empty($list)) {
+      variable_del('nodeaccess_nodereference_nodelist');
+      break;
+    }
+    else {
+      variable_set('nodeaccess_nodereference_nodelist', $list);
+    }
+  }
+
+  // Multistep processing : report progress.
+  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+    $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+}
+
+/**
+ * A version of _node_access_rebuild_batch_finished().
+ */
+function _nodeaccess_nodereference_rebuild_batch_finished($success, $results, $operations) {
+  nodeaccess_nodereference_status('doing_rebuild', FALSE);
+  $messages = variable_get('nodeaccess_nodereference_messages', NULL);
+  variable_del('nodeaccess_nodereference_messages');
+  foreach ($messages as $type => $msgs) {
+    foreach($msgs as $msg) {
+      drupal_set_message($msg, $type);
+    }
+  }
+  if ($success) {
+    drupal_set_message(t('The node reference access permissions have been rebuilt.'));
+  }
+  else {
+    drupal_set_message(t('The node reference access permissions have not been properly rebuilt.'), 'error');
   }
   cache_clear_all();
 }
@@ -406,3 +550,49 @@ function nodeaccess_nodereference_fetch_nodes_sql() {
   return $sql;
 }
 
+/**
+ * Implementation of hook_form_FORM_ID_alter().
+ */
+function nodeaccess_nodereference_form_node_configure_rebuild_confirm_alter(&$form, $form_state) {
+  array_unshift($form['#submit'], 'nodeaccess_nodereference_rebuild_submit');
+}
+
+/**
+ * Copy the table when someone presses that rebuild button.
+ */
+function nodeaccess_nodereference_rebuild_submit($form, &$form_state) {
+  nodeaccess_nodereference_table();
+  nodeaccess_nodereference_status('needs_rebuild', TRUE);
+}
+
+/**
+ * Implementation of hook_nodeapi().
+ */
+function nodeaccess_nodereference_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  switch ($op) {
+    case 'insert':
+    case 'update':
+      // grab some info about this content type from cck
+      $content_types = content_types($node->type);
+      // pull out the fields settings
+      $fields = &$content_types['fields'];
+      // ensure $fields is an array
+      if (is_array($fields)) {
+        // Check each field in the node
+        foreach ($fields as $field) {
+          // Check if it is a nodereference
+          if ($field['type'] == 'nodereference') {
+            // Get the data about this nodereference field
+            $variable = 'nodeaccess_nodereference_'. $field['field_name'] .'_'. $node->type;
+            $data = variable_get($variable, array('view' => 0, 'update' => 0, 'delete' => 0));
+            // Check if this nodereference allows any access
+            if (($data['view'] || $data['update'] || $data['delete'])) {
+              nodeaccess_nodereference_table();
+              return;
+            }
+          }
+        }
+      }
+      break;
+  }
+}
