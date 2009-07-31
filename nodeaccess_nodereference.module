@@ -475,8 +475,11 @@ function _nodeaccess_nodereference_rebuild_batch_operation(&$context) {
   }
 
   // Multistep processing : report progress.
-  if ($context['sandbox']['progress'] != $context['sandbox']['max']) {
+  if ($context['sandbox']['progress'] != $context['sandbox']['max'] && $context['sandbox']['max']) {
     $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+  }
+  elseif (!$context['sandbox']['max']) {
+    $context['finished'] = 1;
   }
 }
 
