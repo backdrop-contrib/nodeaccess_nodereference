@@ -106,8 +106,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
  */
 function nodeaccess_nodereference_form_content_field_edit_form_alter(&$form, $form_state) {
   if ($form['#field']['type'] == 'nodereference') {
-    $variable = 'nodeaccess_nodereference_'. $form['#field']['field_name'] .'_'. $form['#field']['type_name'];
-    $data = variable_get($variable, array('view' => 0, 'update' => 0, 'delete' => 0));
+    $data = nodeaccess_nodereference_field_settings($form['#field']['type_name'], $form['#field']['field_name']);
 
     $form['widget']['nodeaccess_nodereference_view'] = array(
       '#type' => 'checkbox',
@@ -142,13 +141,12 @@ function nodeaccess_nodereference_form_content_field_edit_form_alter(&$form, $fo
  */
 function nodeaccess_nodereference_content_field_edit_form_submit($form, &$form_state) {
   $form_values = &$form_state['values'];
-  $variable = 'nodeaccess_nodereference_'. $form_values['field_name'] .'_'. $form_values['type_name'];
   $data = array(
     'view' => $form_values['nodeaccess_nodereference_view'],
     'update' => $form_values['nodeaccess_nodereference_update'],
     'delete' => $form_values['nodeaccess_nodereference_delete'],
   );
-  variable_set($variable, $data);
+  nodeaccess_nodereference_field_settings($form_values['type_name'], $form_values['field_name'], $data);
   $nodes = node_load(array('type' => $form_values['type_name']));
   if ($nodes) {
     node_access_needs_rebuild(TRUE);
@@ -191,8 +189,7 @@ function nodeaccess_nodereference_node_access_records($node) {
             // Check if it is a nodereference
             if ($field['type'] == 'nodereference') {
               // Get the data about this nodereference field
-              $variable = 'nodeaccess_nodereference_'. $field['field_name'] .'_'. $node->type;
-              $data = variable_get($variable, array('view' => 0, 'update' => 0, 'delete' => 0));
+              $data = nodeaccess_nodereference_field_settings($node->type, $field['field_name']);
               // Check if this nodereference allows any access
               if (($data['view'] || $data['update'] || $data['delete'])) {
                 // Foreach referenced node 
@@ -586,8 +583,7 @@ function nodeaccess_nodereference_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
           // Check if it is a nodereference
           if ($field['type'] == 'nodereference') {
             // Get the data about this nodereference field
-            $variable = 'nodeaccess_nodereference_'. $field['field_name'] .'_'. $node->type;
-            $data = variable_get($variable, array('view' => 0, 'update' => 0, 'delete' => 0));
+            $data = nodeaccess_nodereference_field_settings($node->type, $field['field_name']);
             // Check if this nodereference allows any access
             if (($data['view'] || $data['update'] || $data['delete'])) {
               nodeaccess_nodereference_table();
@@ -598,4 +594,48 @@ function nodeaccess_nodereference_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
       }
       break;
   }
+}
+
+/**
+ * Set and get nodeaccess nodereference field settings.
+ *
+ * @param $type_name
+ *   The node type.
+ * @param $field_name
+ *   The name of the field.
+ * @param $variable
+ *   If set will update the value of the settings for this field.
+ * @return
+ *   The stored or updated value of the settings for this field.
+ */
+function nodeaccess_nodereference_field_settings($type_name, $field_name, $variable = NULL) {
+
+  // 'get' the variable
+  $data = variable_get('nodeaccess_nodereference', NULL);
+  if (!$data || !isset($data[$type_name][$field_name])) {
+    // Attempt to get result from old variables.
+    $old_varname = substr('nodeaccess_nodereference_'. $field_name .'_'. $type_name, 0, 48);
+    $old_data = variable_get($old_varname, NULL);
+    if (is_array($old_data)) {
+      variable_del($old_varname);
+      nodeaccess_nodereference_field_settings($type_name, $field_name, $old_data);
+      $data[$type_name][$field_name] = $old_data;
+    }
+    else {
+      // default
+      $data[$type_name][$field_name] = array(
+        'view' => 0, 
+        'update' => 0, 
+        'delete' => 0,
+      );
+    }
+  }
+
+  // change and 'set' the variable
+  if (isset($variable)) {
+    $data[$type_name][$field_name] = $variable;
+    variable_set('nodeaccess_nodereference', $data);
+  }
+
+  return $data[$type_name][$field_name];
 }
