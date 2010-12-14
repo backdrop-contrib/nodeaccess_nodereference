@@ -3,40 +3,38 @@
 
 
 /**
- * Implementation of hook_init().
+ * Implementation of hook_cron().
  */
-function nodeaccess_nodereference_init() {
-  if ($_GET['q'] != 'batch') {
-    if (nodeaccess_nodereference_status('needs_rebuild')) {
-      variable_set('nodeaccess_nodereference_messages', drupal_get_messages());
-      nodeaccess_nodereference_rebuild(TRUE);
-    }
-    elseif (variable_get('nodeaccess_nodereference_nodelist', FALSE)) {
-      nodeaccess_nodereference_status('doing_rebuild', TRUE);
+function nodeaccess_nodereference_cron() {
+  if (nodeaccess_nodereference_status('needs_rebuild')) {
+    variable_set('nodeaccess_nodereference_messages', drupal_get_messages());
+    nodeaccess_nodereference_rebuild(TRUE);
+  }
+  elseif (variable_get('nodeaccess_nodereference_nodelist', FALSE)) {
+    nodeaccess_nodereference_status('doing_rebuild', TRUE);
 
-      // Process the next 20 nodes - we would *normally* only expect a single node here though.
-      $limit = variable_get('nodeaccess_nodereference_limit', 20);
+    // Process the next 20 nodes - we would *normally* only expect a single node here though.
+    $limit = variable_get('nodeaccess_nodereference_limit', 20);
 
-      for ($i = 0; $i < $limit; $i++) {
-        $list = variable_get('nodeaccess_nodereference_nodelist', array());
-        $nid = array_shift($list);
-        $loaded_node = node_load($nid, NULL, TRUE);
-        // To preserve database integrity, only aquire grants if the node
-        // loads successfully.
-        if (!empty($loaded_node)) {
-          nodeaccess_nodereference_acquire_grants($loaded_node);
-        }
-        if (empty($list)) {
-          variable_del('nodeaccess_nodereference_nodelist');
-          break;
-        }
-        else {
-          variable_set('nodeaccess_nodereference_nodelist', $list);
-        }
+    for ($i = 0; $i < $limit; $i++) {
+      $list = variable_get('nodeaccess_nodereference_nodelist', array());
+      $nid = array_shift($list);
+      $loaded_node = node_load($nid, NULL, TRUE);
+      // To preserve database integrity, only aquire grants if the node
+      // loads successfully.
+      if (!empty($loaded_node)) {
+        nodeaccess_nodereference_acquire_grants($loaded_node);
       }
-
-      nodeaccess_nodereference_status('doing_rebuild', FALSE);
+      if (empty($list)) {
+        variable_del('nodeaccess_nodereference_nodelist');
+        break;
+      }
+      else {
+        variable_set('nodeaccess_nodereference_nodelist', $list);
+      }
     }
+
+    nodeaccess_nodereference_status('doing_rebuild', FALSE);
   }
 }
 
