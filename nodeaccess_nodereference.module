@@ -20,7 +20,7 @@ function nodeaccess_nodereference_cron() {
       $list = variable_get('nodeaccess_nodereference_nodelist', array());
       $nid = array_shift($list);
       $loaded_node = node_load($nid, NULL, TRUE);
-      // To preserve database integrity, only aquire grants if the node
+      // To preserve database integrity, only acquire grants if the node
       // loads successfully.
       if (!empty($loaded_node)) {
         nodeaccess_nodereference_acquire_grants($loaded_node);
@@ -59,7 +59,7 @@ function nodeaccess_nodereference_menu() {
     'access arguments' => array('administer site configuration'),
     'type' => MENU_NORMAL_ITEM,
   );
-    
+
   return $items;
 }
 
@@ -67,12 +67,12 @@ function nodeaccess_nodereference_menu() {
  * System settings form for nodeaccess_nodereference.
  */
 function nodeaccess_nodereference_admin_settings() {
-  
+
   $form['nodeaccess_nodereference_priority'] = array(
     '#type' => 'weight',
     '#title' => t('Set node grants priority for Node Access Node Reference'),
     '#default_value' => variable_get('nodeaccess_nodereference_priority', 0),
-    '#description' => t('If you are only using this access control module, you can safely ignore this. 
+    '#description' => t('If you are only using this access control module, you can safely ignore this.
     If you are using multiple access control modules you can adjust the priority of this module.'),
   );
 
@@ -169,7 +169,7 @@ function nodeaccess_nodereference_node_access_records($node) {
     $priority = variable_get('nodeaccess_nodereference_priority', 0);
     // ensure $fields is an array
     if (is_array($fields)) {
-      
+
       // Go through each user.
       foreach ($uids as $uid) {
         // Ensure they are not anonymous
@@ -190,7 +190,7 @@ function nodeaccess_nodereference_node_access_records($node) {
               $data = nodeaccess_nodereference_field_settings($node->type, $field['field_name']);
               // Check if this nodereference allows any access
               if (($data['view'] || $data['update'] || $data['delete'])) {
-                // Foreach referenced node 
+                // Foreach referenced node
                 foreach ((array)$node->$field['field_name'] as $nodereference) {
                   // Load the node
                   $reference = node_load($nodereference['nid']);
@@ -530,12 +530,12 @@ function nodeaccess_nodereference_fetch_nodes_sql() {
   foreach ((array)$fields as $field) {
     if ($field['type'] == 'nodereference') {
       if ($field['db_storage']) {
-        $joins[] = 'INNER JOIN {content_type_'. $field['type_name'] .'} '. 
+        $joins[] = 'INNER JOIN {content_type_'. $field['type_name'] .'} '.
           $field['type_name'] .' ON n.vid = '. $field['type_name'] .'.vid';
         $where_field = $field['type_name'] .'.'. $field['field_name'] .'_nid';
       }
       else {
-        $joins[] = 'INNER JOIN {content_'. $field['field_name'] .'} '. 
+        $joins[] = 'INNER JOIN {content_'. $field['field_name'] .'} '.
           $field['field_name'] .' ON n.vid = '. $field['field_name'] .'.vid';
         $where_field = $field['field_name'] .'.'. $field['field_name'] .'_nid';
       }
@@ -622,8 +622,8 @@ function nodeaccess_nodereference_field_settings($type_name, $field_name, $varia
     else {
       // default
       $data[$type_name][$field_name] = array(
-        'view' => 0, 
-        'update' => 0, 
+        'view' => 0,
+        'update' => 0,
         'delete' => 0,
       );
     }
