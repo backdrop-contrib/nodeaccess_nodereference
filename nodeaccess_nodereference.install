@@ -27,4 +27,5 @@ function nodeaccess_nodereference_uninstall() {
   drupal_uninstall_schema('nodeaccess_nodereference');
   // Remove variables.
   variable_del('nodeaccess_nodereference');
+  variable_del('nodeaccess_nodereference_priority');
 }
