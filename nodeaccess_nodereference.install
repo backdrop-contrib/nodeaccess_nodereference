@@ -25,5 +25,6 @@ function nodeaccess_nodereference_install() {
 function nodeaccess_nodereference_uninstall() {
   // Remove tables.
   drupal_uninstall_schema('nodeaccess_nodereference');
+  // Remove variables.
   variable_del('nodeaccess_nodereference');
 }
