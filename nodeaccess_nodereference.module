@@ -125,79 +125,77 @@ function nodeaccess_nodereference_node_access_records($node) {
 
     // Go through each user.
     foreach ($uids as $uid) {
-      // Ensure they are not anonymous
-      if ($uid) {
-        // Load the user object
-        $user_account = user_load($uid);
 
-        // Deny this user access by default.
-        $view = FALSE;
-        $update = FALSE;
-        $delete = FALSE;
+      // Load the user object.
+      $user_account = user_load($uid);
 
-        // Check each field in the node
-        foreach ($fields as $field) {
-          // Check if it is a nodereference
-          if ($field['type'] == 'nodereference') {
-            // Get the data about this nodereference field
-            $data = nodeaccess_nodereference_field_settings($node->type, $field['field_name']);
-            // Check if this nodereference allows any access
-            if (($data['view'] || $data['update'] || $data['delete'])) {
-              // Foreach referenced node
-              foreach ((array)$node->$field['field_name'] as $nodereference) {
-                // Load the node
-                $reference = node_load($nodereference['nid']);
-                // Check if the node is loaded
-                if ($reference) {
-                  // If user does not yet have view access, and this field
-                  // gives that kind of access, check if they should get it.
-                  if (!$view && $data['view']) {
-                    $view = nodeaccess_nodereference_node_access('view', $reference, $user_account);
-                  }
-                  // If user does not yet have update access, and this field
-                  // gives that kind of access, check if they should get it.
-                  if (!$update && $data['update']) {
-                    $update = nodeaccess_nodereference_node_access('update', $reference, $user_account);
-                  }
-                  // If user does not yet have delete access, and this field
-                  // gives that kind of access, check if they should get it.
-                  if (!$delete && $data['delete']) {
-                    $delete = nodeaccess_nodereference_node_access('delete', $reference, $user_account);
-                  }
-                  // If this user has been given all 3 types of access
-                  if ($view && $update && $delete) {
-                      // nothing more we can do for this user, break out of 2 foreach loops.
-                      break 2;
-                  }
+      // Deny this user access by default.
+      $view = FALSE;
+      $update = FALSE;
+      $delete = FALSE;
+
+      // Check each field in the node.
+      foreach ($fields as $field) {
+        // Check if it is a nodereference.
+        if ($field['type'] == 'nodereference') {
+          // Get the data about this nodereference field.
+          $data = nodeaccess_nodereference_field_settings($node->type, $field['field_name']);
+          // Check if this nodereference allows any access.
+          if (($data['view'] || $data['update'] || $data['delete'])) {
+            // Foreach referenced node
+            foreach ((array)$node->$field['field_name'] as $nodereference) {
+              // Load the node
+              $reference = node_load($nodereference['nid']);
+              // Check if the node is loaded.
+              if ($reference) {
+                // If user does not yet have view access, and this field
+                // gives that kind of access, check if they should get it.
+                if (!$view && $data['view']) {
+                  $view = nodeaccess_nodereference_node_access('view', $reference, $user_account);
+                }
+                // If user does not yet have update access, and this field
+                // gives that kind of access, check if they should get it.
+                if (!$update && $data['update']) {
+                  $update = nodeaccess_nodereference_node_access('update', $reference, $user_account);
+                }
+                // If user does not yet have delete access, and this field
+                // gives that kind of access, check if they should get it.
+                if (!$delete && $data['delete']) {
+                  $delete = nodeaccess_nodereference_node_access('delete', $reference, $user_account);
+                }
+                // If this user has been given all 3 types of access.
+                if ($view && $update && $delete) {
+                    // Nothing more we can do for this user, break out of 2 foreach loops.
+                    break 2;
                 }
               }
             }
           }
         }
-
-        // If this user has been given any access
-        if ($view || $update || $delete) {
-          // Create a grant for it
-          if (!isset($grants[$uid])) {
-            $grants[$uid] = array(
-              'realm' => 'nodeaccess_nodereference',
-              'gid' => $uid,
-              'priority' => $priority,
-            );
-          }
-          // and add the right settings to the grants
-          if ($view) {
-            $grants[$uid]['grant_view'] = 1;
-          }
-          if ($update) {
-            $grants[$uid]['grant_update'] = 1;
-          }
-          if ($delete) {
-            $grants[$uid]['grant_delete'] = 1;
-          }
-        }
-
       }
+
+      // If this user has been given any access
+      if ($view || $update || $delete) {
+        // Create a grant for it
+        if (!isset($grants[$uid])) {
+          $grants[$uid] = array(
+            'realm' => 'nodeaccess_nodereference',
+            'gid' => $uid,
+            'priority' => $priority,
+          );
+        }
+        // And add the right settings to the grants.
+        if ($view) {
+          $grants[$uid]['grant_view'] = 1;
+        }
+        if ($update) {
+          $grants[$uid]['grant_update'] = 1;
+        }
+        if ($delete) {
+          $grants[$uid]['grant_delete'] = 1;
+        }
+      }
+
     }
   }
   if (!empty($grants)) {
