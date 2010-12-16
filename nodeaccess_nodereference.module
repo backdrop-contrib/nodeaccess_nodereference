@@ -89,8 +89,8 @@ function nodeaccess_nodereference_get_referenced() {
         $field_info = $info['content types'][$type]['fields'][$field];
         $table = $field_info['db_storage'] ? 'content_type_'. $type : 'content_'. $field;
         $select = $table . $field .'_value';
-        $current = $table .'nid';
-        $sql = "SELECT ". $select ." AS reference FROM {". $table ."} INNER JOIN {node} ON ". $current ." = node.nid";
+        $current = $table .'vid';
+        $sql = "SELECT ". $select ." AS reference FROM {". $table ."} INNER JOIN {node} ON ". $current ." = node.vid";
         $result = db_query($sql);
         while ($row = db_fetch_array($result)) {
           $references[$row['reference']] = $row['reference'];
