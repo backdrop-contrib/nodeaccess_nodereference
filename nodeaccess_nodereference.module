@@ -206,7 +206,10 @@ function nodeaccess_nodereference_node_access_records($node) {
       }
     }
   }
+
+  // Flag that the cache is not to be relied upon.
   variable_set('nodeaccess_nodereference_cache_needs_clear', TRUE);
+
   if (!empty($grants)) {
     return $grants;
   }
