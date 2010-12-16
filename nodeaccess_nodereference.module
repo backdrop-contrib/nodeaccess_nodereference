@@ -48,17 +48,17 @@ function nodeaccess_nodereference_admin_settings() {
  * @todo: Cache this?
  */
 function nodeaccess_nodereference_node_grants($account, $op) {
-  static $grants = NULL;
-  if (is_null($grants)) {
-    $grants = array();
+  static $grants[$account->uid][$op] = NULL;
+  if (is_null($grants[$account->uid][$op])) {
+    $grants[$account->uid][$op] = array();
     $references = nodeaccess_nodereference_get_referenced();
     foreach ($references as $reference) {
       if ($reference_node = node_load($reference) && node_access($op, $reference_node, $account)) {
-        $grants['nodeaccess_nodereference'][] = $reference;
+        $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $reference;
       }
     }
   }
-  return $grants;
+  return $grants[$account->uid][$op];
 }
 
 /**
