@@ -49,7 +49,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
   static $grants[$account->uid][$op] = NULL;
   if (is_null($grants[$account->uid][$op])) {
     if (variable_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
-      // Clear the cache
+      // Clear the cache.
       cache_clear_all('nodeaccess_nodereference', 'cache', TRUE);
       variable_del('nodeaccess_nodereference_cache_needs_clear');
       $cached_grants = NULL;
