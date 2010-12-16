@@ -235,7 +235,7 @@ function nodeaccess_nodereference_node_access($op, $node, $account = NULL) {
   }
   // Convert the node to an object if necessary:
   if ($op != 'create') {
-    $node = (object)$node;
+    $node = (object) $node;
   }
   // If no user object is supplied, the access check is for the current user.
   if (empty($account)) {
@@ -277,12 +277,12 @@ function nodeaccess_nodereference_node_access($op, $node, $account = NULL) {
 
     $grants_sql = '';
     if (count($grants)) {
-      $grants_sql = 'AND ('. implode(' OR ', $grants) .')';
+      $grants_sql = 'AND (' . implode(' OR ', $grants) . ')';
     }
 
-    $sql = "SELECT COUNT(*) FROM {nodeaccess_nodereference} WHERE (nid = 0 OR nid = %d) $grants_sql AND grant_$op >= 1";
-    $result = db_query($sql, $node->nid);
-    return (db_result($result));
+    $sql = "SELECT 1 FROM {nodeaccess_nodereference} WHERE (nid = 0 OR nid = %d) $grants_sql AND grant_$op >= 1";
+    $result = db_query_range($sql, $node->nid, 0, 1);
+    return (bool) db_result($result);
   }
 
   // Let authors view their own nodes.
