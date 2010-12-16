@@ -44,18 +44,31 @@ function nodeaccess_nodereference_admin_settings() {
 
 /**
  * Implementation of hook_node_grants().
- *
- * @todo: Cache this?
  */
 function nodeaccess_nodereference_node_grants($account, $op) {
   static $grants[$account->uid][$op] = NULL;
   if (is_null($grants[$account->uid][$op])) {
-    $grants[$account->uid][$op] = array();
-    $references = nodeaccess_nodereference_get_referenced();
-    foreach ($references as $reference) {
-      if ($reference_node = node_load($reference) && node_access($op, $reference_node, $account)) {
-        $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $reference;
+    if (variable_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
+      // Clear the cache
+      cache_clear_all('nodeaccess_nodereference', 'cache', TRUE);
+      variable_del('nodeaccess_nodereference_cache_needs_clear');
+      $cached_grants = NULL;
+    }
+    else {
+      $cached_grants = cache_get('nodeaccess_nodereference_'. $account->uid .'_'. $op);
+    }
+    if (empty($cached_grants)) {
+      $grants[$account->uid][$op] = array();
+      $references = nodeaccess_nodereference_get_referenced();
+      foreach ($references as $reference) {
+        if ($reference_node = node_load($reference) && node_access($op, $reference_node, $account)) {
+          $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $reference;
+        }
       }
+      cache_set('nodeaccess_nodereference_'. $account->uid .'_'. $op, $grants[$account->uid][$op]['nodeaccess_nodereference']);
+    }
+    else {
+      $grants[$account->uid][$op]['nodeaccess_nodereference'] = $cached_grants;
     }
   }
   return $grants[$account->uid][$op];
@@ -151,8 +164,6 @@ function nodeaccess_nodereference_node_access_records($node) {
   $content_types = content_types($node->type);
   // Pull out the fields settings.
   $fields = &$content_types['fields'];
-  // Get a list of all user IDs on the site.
-  $uids = nodeaccess_nodereference_users();
   // Set priority according to config.
   $priority = variable_get('nodeaccess_nodereference_priority', 0);
   // Ensure $fields is an array.
@@ -195,23 +206,11 @@ function nodeaccess_nodereference_node_access_records($node) {
       }
     }
   }
+  variable_set('nodeaccess_nodereference_cache_needs_clear', TRUE);
   if (!empty($grants)) {
     return $grants;
   }
   return NULL;
-}
-
-/**
- * Get all users on the site.
- */
-function nodeaccess_nodereference_users() {
-  $query = 'SELECT uid FROM {users}';
-  $result = db_query($query);
-  $users = array();
-  while ($row = db_fetch_array($result)) {
-    $users[] = $row['uid'];
-  }
-  return $users;
 }
 
 /**
