@@ -192,13 +192,13 @@ function nodeaccess_nodereference_node_access_records($node) {
               }
               // And add the right settings to the grants.
               if ($data['view']) {
-                $grants[$uid]['grant_view'] = 1;
+                $grants[$nid]['grant_view'] = 1;
               }
               if ($data['update']) {
-                $grants[$uid]['grant_update'] = 1;
+                $grants[$nid]['grant_update'] = 1;
               }
               if ($data['delete']) {
-                $grants[$uid]['grant_delete'] = 1;
+                $grants[$nid]['grant_delete'] = 1;
               }
             }
           }
