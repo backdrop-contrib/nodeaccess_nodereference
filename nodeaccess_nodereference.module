@@ -46,8 +46,8 @@ function nodeaccess_nodereference_admin_settings() {
  * Implementation of hook_node_grants().
  */
 function nodeaccess_nodereference_node_grants($account, $op) {
-  static $grants[$account->uid][$op] = NULL;
-  if (is_null($grants[$account->uid][$op])) {
+  static $grants = array();
+  if (!isset($grants[$account->uid][$op])) {
     if (variable_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
       // Clear the cache.
       cache_clear_all('nodeaccess_nodereference', 'cache', TRUE);
