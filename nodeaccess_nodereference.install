@@ -28,5 +28,8 @@ function nodeaccess_nodereference_uninstall() {
   // Remove variables.
   variable_del('nodeaccess_nodereference');
   variable_del('nodeaccess_nodereference_priority');
+  variable_del('nodeaccess_nodereference_author_view');
+  variable_del('nodeaccess_nodereference_author_update');
+  variable_del('nodeaccess_nodereference_author_delete');
   variable_del('nodeaccess_nodereference_cache_needs_clear');
 }
