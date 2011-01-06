@@ -2,21 +2,14 @@
 // $Id$
 
 /**
- * Implementation of hook_perm().
- */
-function nodeaccess_nodereference_perm() {
-  return array('administer node access node reference');
-}
-
-/**
  * Implementation of hook_menu().
  */
 function nodeaccess_nodereference_menu() {
   $items = array();
 
   $items['admin/settings/nodeaccess_nodereference'] = array(
-    'title' => 'Node access node reference settings',
-    'description' => t('Node access node reference.'),
+    'title' => 'Node access node reference',
+    'description' => 'Configure Node access node reference.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('nodeaccess_nodereference_admin_settings'),
     'access arguments' => array('administer site configuration'),
@@ -30,7 +23,6 @@ function nodeaccess_nodereference_menu() {
  * System settings form for nodeaccess_nodereference.
  */
 function nodeaccess_nodereference_admin_settings() {
-
   $form['nodeaccess_nodereference_priority'] = array(
     '#type' => 'weight',
     '#title' => t('Set node grants priority for Node access node reference'),
@@ -38,8 +30,36 @@ function nodeaccess_nodereference_admin_settings() {
     '#description' => t('If this is the only node access module you are using, you can safely ignore this.
     If you are using multiple node access modules you can adjust the priority of this module.'),
   );
+  $form['nodeaccess_nodereference_author_view'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant "view" access to node author'),
+    '#default_value' => variable_get('nodeaccess_userreference_author_view', 1),
+    '#description' => t('Grants "view" access back to the author.  Use this if not using other node access modules to set author access.'),
+  );
+  $form['nodeaccess_userreference_author_update'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant "edit" access to node author'),
+    '#default_value' => variable_get('nodeaccess_userreference_author_update', 1),
+    '#description' => t('Grants "edit" access back to the author.  Use this if not using other node access modules to set author access.'),
+  );
+  $form['nodeaccess_userreference_author_delete'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Grant "delete" access to node author'),
+    '#default_value' => variable_get('nodeaccess_userreference_author_delete', 1),
+    '#description' => t('Grants "delete" access back to the author.  Use this if not using other node access modules to set author access.'),
+  );
+
+  // Add additional submit processing
+  $form['#submit'][] = 'nodeaccess_userreference_admin_settings_submit';
 
   return system_settings_form($form);
+}
+
+/**
+ * Submit function for the system settings form for nodeaccess_nodereference.
+ */
+function nodeaccess_nodereference_admin_settings_submit() {
+  node_access_needs_rebuild(TRUE);
 }
 
 /**
@@ -211,6 +231,21 @@ function nodeaccess_nodereference_node_access_records($node) {
   variable_set('nodeaccess_nodereference_cache_needs_clear', TRUE);
 
   if (!empty($grants)) {
+    // Store author grants according to configuration.
+    $grant_view = variable_get('nodeaccess_nodereference_author_view', 1);
+    $grant_update = variable_get('nodeaccess_nodereference_author_update', 1);
+    $grant_delete = variable_get('nodeaccess_nodereference_author_delete', 1);
+    if ($grant_view || $grant_update || $grant_delete) {
+      $grants[] = array(
+        'realm' => 'nodeaccess_nodereference_author',
+        'gid' => $node->uid,
+        'priority' => $priority,
+        'grant_view' => $grant_view,
+        'grant_update' => $grant_update,
+        'grant_delete' => $grant_delete,
+      );
+    }
+
     return $grants;
   }
   return NULL;
