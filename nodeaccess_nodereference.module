@@ -106,20 +106,13 @@ function nodeaccess_nodereference_node_grants($account, $op) {
  */
 function nodeaccess_nodereference_get_referenced() {
   $references = array();
-  $info = _content_type_info();
-  $settings = variable_get('nodeaccess_nodereference', NULL);
-  $query = array();
+  $settings = variable_get('nodeaccess_nodereference', array());
   foreach ($settings as $type => $fields) {
     foreach ($fields as $field => $data) {
       if (($data['view'] || $data['update'] || $data['delete'])) {
-        $field_info = $info['content types'][$type]['fields'][$field];
-        $table = $field_info['db_storage'] ? 'content_type_' . $type : 'content_' . $field;
-        $select = $table . $field . '_value';
-        $current = $table . 'vid';
-        $sql = "SELECT " . $select . " AS reference FROM {" . $table . "} INNER JOIN {node} ON " . $current . " = node.vid";
-        $result = db_query($sql);
-        while ($row = db_fetch_array($result)) {
-          $references[$row['reference']] = $row['reference'];
+        $result = db_query("SELECT " . $field . "_nid AS reference FROM {field_data_" . $field . "}");
+        foreach ($result as $row) {
+          $references[$row['reference']] = $row->reference;
         }
       }
     }
@@ -130,50 +123,51 @@ function nodeaccess_nodereference_get_referenced() {
 /**
  * Implements hook_form_FORM_ID_alter().
  */
-function nodeaccess_nodereference_form_content_field_edit_form_alter(&$form, $form_state) {
-  if ($form['#field']['type'] == 'nodereference') {
-    $data = nodeaccess_nodereference_field_settings($form['#field']['type_name'], $form['#field']['field_name']);
+function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $form_state) {
+  if ($form['#field']['type'] == 'node_reference') {
 
-    $form['widget']['nodeaccess_nodereference_view'] = array(
+    $data = nodeaccess_nodereference_field_settings($form['#field']['field_name']);
+
+    $form['field']['settings']['nodeaccess_nodereference'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Node access node reference'),
+    );
+
+    $form['field']['settings']['nodeaccess_nodereference']['view'] = array(
       '#type' => 'checkbox',
       '#title' => t('Pass on <em>view</em> node access'),
       '#default_value' => $data['view'],
       '#description' => t('View access on this node will be given if the user has access to one of the referenced nodes.'),
-      '#weight' => 42,
     );
 
-    $form['widget']['nodeaccess_nodereference_update'] = array(
+    $form['field']['settings']['nodeaccess_nodereference']['update'] = array(
       '#type' => 'checkbox',
       '#title' => t('Pass on <em>edit</em> node access'),
       '#default_value' => $data['update'],
       '#description' => t('Edit access on this node will be given if the user has access to one of the referenced nodes.'),
-      '#weight' => 43,
     );
 
-    $form['widget']['nodeaccess_nodereference_delete'] = array(
+    $form['field']['settings']['nodeaccess_nodereference']['delete'] = array(
       '#type' => 'checkbox',
       '#title' => t('Pass on <em>delete</em> node access'),
       '#default_value' => $data['delete'],
       '#description' => t('Delete access on this node will be given if the user has access to one of the referenced nodes.'),
-      '#weight' => 44,
     );
 
-    $form['#submit'][] = 'nodeaccess_nodereference_content_field_edit_form_submit';
+    $form['#submit'][] = 'nodeaccess_nodereference_form_field_ui_field_edit_form_submit';
+
   }
 }
 
 /**
  * Extra submit function for Node reference field config.
  */
-function nodeaccess_nodereference_content_field_edit_form_submit($form, &$form_state) {
-  $form_values = &$form_state['values'];
-  $data = array(
-    'view' => $form_values['nodeaccess_nodereference_view'],
-    'update' => $form_values['nodeaccess_nodereference_update'],
-    'delete' => $form_values['nodeaccess_nodereference_delete'],
-  );
-  nodeaccess_nodereference_field_settings($form_values['type_name'], $form_values['field_name'], $data);
-  $nodes = node_load_multiple(NULL, array('type' => $form_values['type_name']));
+function nodeaccess_nodereference_form_field_ui_field_edit_form_submit($form, &$form_state) {
+  $data = &$form_state['values']['field']['settings']['nodeaccess_nodereference'];
+  $field_name = &$form_state['values']['instance']['field_name'];
+  nodeaccess_nodereference_field_settings($field_name, $data);
+  $type = &$form_state['values']['instance']['bundle'];
+  $nodes = node_load_multiple(NULL, array('type' => $type));
   if ($nodes) {
     // Because the field settings have changed we should prompt for a full rebuild.
     node_access_needs_rebuild(TRUE);
@@ -190,31 +184,21 @@ function nodeaccess_nodereference_node_access_records($node) {
 
   foreach ($bundles as $fields) {
     foreach ($fields as $field) {
-      // TODO: Find a better way to target node_reference fields
-      if ($field['display']['default']['type'] == 'node_reference_default') {
-        $data = nodeaccess_nodereference_field_settings($node->type, $field['field_name']);
+      if ($field['widget']['module'] == 'node_reference') {
+        $data = nodeaccess_nodereference_field_settings($field['field_name']);
         if (!empty($data) && !empty($node->$field['field_name'])) {
           if (($data['view'] || $data['update'] || $data['delete'])) {
             foreach ((array)$node->$field['field_name'] as $language) {
               foreach ($language as $nodereference) {
-                $reference = node_load($nodereference['nid']);
-                if ($reference) {
-                  if (!isset($grants[$nid])) {
-                    $grants[$nid] = array(
-                      'realm' => 'nodeaccess_nodereference',
-                      'gid' => $nid,
-                      'priority' => $priority,
-                    );
-                  }
-                  if ($data['view']) {
-                    $grants[$nid]['grant_view'] = 1;
-                  }
-                  if ($data['update']) {
-                    $grants[$nid]['grant_update'] = 1;
-                  }
-                  if ($data['delete']) {
-                    $grants[$nid]['grant_delete'] = 1;
-                  }
+                if ($reference = node_load($nodereference['nid'])) {
+                  $grants[] = array(
+                    'realm' => 'nodeaccess_nodereference',
+                    'gid' => $node->nid,
+                    'priority' => $priority,
+                    'grant_view' => $data['view'],
+                    'grant_update' => $data['update'],
+                    'grant_delete' => $data['delete'],
+                  );
                 }
               }
             }
@@ -251,8 +235,6 @@ function nodeaccess_nodereference_node_access_records($node) {
 /**
  * Set and get nodeaccess nodereference field settings.
  *
- * @param $type_name
- *   The node type.
  * @param $field_name
  *   The name of the field.
  * @param $variable
@@ -260,11 +242,13 @@ function nodeaccess_nodereference_node_access_records($node) {
  * @return
  *   The stored or updated value of the settings for this field.
  */
-function nodeaccess_nodereference_field_settings($type_name, $field_name, $variable = NULL) {
-  $data = variable_get('nodeaccess_nodereference', NULL);
+function nodeaccess_nodereference_field_settings($field_name, $variable = NULL) {
+  $data = variable_get('nodeaccess_nodereference', array());
   if (isset($variable)) {
-    $data[$type_name][$field_name] = $variable;
+    $data[$field_name] = $variable;
     variable_set('nodeaccess_nodereference', $data);
   }
-  return $data[$type_name][$field_name];
+  if (isset($data[$field_name])) {
+    return $data[$field_name];
+  }
 }
