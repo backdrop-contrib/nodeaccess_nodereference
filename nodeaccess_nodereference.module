@@ -7,7 +7,7 @@
  */
 
 /**
- * Implementation of hook_menu().
+ * Implements hook_menu().
  */
 function nodeaccess_nodereference_menu() {
   $items = array();
@@ -68,7 +68,7 @@ function nodeaccess_nodereference_admin_settings_submit($form, &$form_state) {
 }
 
 /**
- * Implementation of hook_node_grants().
+ * Implements hook_node_grants().
  */
 function nodeaccess_nodereference_node_grants($account, $op) {
   static $grants = array();
@@ -80,7 +80,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
       $cached_grants = NULL;
     }
     else {
-      $cached_grants = cache_get('nodeaccess_nodereference_'. $account->uid .'_'. $op);
+      $cached_grants = cache_get('nodeaccess_nodereference_' . $account->uid . '_' . $op);
     }
     if (empty($cached_grants)) {
       $grants[$account->uid][$op] = array();
@@ -90,7 +90,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
           $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $reference;
         }
       }
-      cache_set('nodeaccess_nodereference_'. $account->uid .'_'. $op, $grants[$account->uid][$op]['nodeaccess_nodereference']);
+      cache_set('nodeaccess_nodereference_' . $account->uid . '_' . $op, $grants[$account->uid][$op]['nodeaccess_nodereference']);
     }
     else {
       $grants[$account->uid][$op]['nodeaccess_nodereference'] = $cached_grants;
@@ -113,10 +113,10 @@ function nodeaccess_nodereference_get_referenced() {
     foreach ($fields as $field => $data) {
       if (($data['view'] || $data['update'] || $data['delete'])) {
         $field_info = $info['content types'][$type]['fields'][$field];
-        $table = $field_info['db_storage'] ? 'content_type_'. $type : 'content_'. $field;
-        $select = $table . $field .'_value';
-        $current = $table .'vid';
-        $sql = "SELECT ". $select ." AS reference FROM {". $table ."} INNER JOIN {node} ON ". $current ." = node.vid";
+        $table = $field_info['db_storage'] ? 'content_type_' . $type : 'content_' . $field;
+        $select = $table . $field . '_value';
+        $current = $table . 'vid';
+        $sql = "SELECT " . $select . " AS reference FROM {" . $table . "} INNER JOIN {node} ON " . $current . " = node.vid";
         $result = db_query($sql);
         while ($row = db_fetch_array($result)) {
           $references[$row['reference']] = $row['reference'];
@@ -128,7 +128,7 @@ function nodeaccess_nodereference_get_referenced() {
 }
 
 /**
- * Implementation of hook_form_FORM_ID_alter().
+ * Implements hook_form_FORM_ID_alter().
  */
 function nodeaccess_nodereference_form_content_field_edit_form_alter(&$form, $form_state) {
   if ($form['#field']['type'] == 'nodereference') {
@@ -173,7 +173,7 @@ function nodeaccess_nodereference_content_field_edit_form_submit($form, &$form_s
     'delete' => $form_values['nodeaccess_nodereference_delete'],
   );
   nodeaccess_nodereference_field_settings($form_values['type_name'], $form_values['field_name'], $data);
-  $nodes = node_load(array('type' => $form_values['type_name']));
+  $nodes = node_load_multiple(NULL, array('type' => $form_values['type_name']));
   if ($nodes) {
     // Because the field settings have changed we should prompt for a full rebuild.
     node_access_needs_rebuild(TRUE);
@@ -181,7 +181,7 @@ function nodeaccess_nodereference_content_field_edit_form_submit($form, &$form_s
 }
 
 /**
- * Implementation of hook_node_access_records().
+ * Implements hook_node_access_records().
  */
 function nodeaccess_nodereference_node_access_records($node) {
   $grants = array();

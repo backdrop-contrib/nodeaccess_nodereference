@@ -1,5 +1,5 @@
 ; $Id$
 name = Node access node reference
 description = Provides per node access control with CCK Node reference fields.
-core = 6.x
+core = 7.x
 dependencies[] = node_reference
