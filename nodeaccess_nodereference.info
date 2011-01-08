@@ -1,5 +1,5 @@
 ; $Id$
-name = Node Access Node Reference
-description = Provides per node access control with CCK Node Reference fields.
+name = Node access node reference
+description = Provides per node access control with CCK Node reference fields.
 core = 6.x
-dependencies[] = nodereference
+dependencies[] = node_reference

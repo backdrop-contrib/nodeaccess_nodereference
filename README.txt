@@ -19,11 +19,11 @@ Project page: http://drupal.org/project/nodeaccess_nodereference.
 
 INSTALLATION
 ------------
-1. Copy nodeaccess_userreference folder to modules directory.
+1. Install Node reference from the References project:
+   http://drupal.org/project/references
+2. Copy nodeaccess_nodereference folder to modules directory.
    (Usually 'sites/all/modules')
-2. At 'admin/build/modules' enable the Node access user reference module.
-3. If neccessary, though usually it isn't, configure module priority at
-   admin/settings/nodeaccess_nodereference.
+3. At 'admin/build/modules' enable the Node access node reference module.
 
 
 USAGE

@@ -2,12 +2,17 @@
 // $Id$
 
 /**
+ * @file
+ * The Node access node reference module.
+ */
+
+/**
  * Implementation of hook_menu().
  */
 function nodeaccess_nodereference_menu() {
   $items = array();
 
-  $items['admin/settings/nodeaccess_nodereference'] = array(
+  $items['admin/config/nodeaccess_nodereference'] = array(
     'title' => 'Node access node reference',
     'description' => 'Configure Node access node reference.',
     'page callback' => 'drupal_get_form',
@@ -22,7 +27,7 @@ function nodeaccess_nodereference_menu() {
 /**
  * System settings form for nodeaccess_nodereference.
  */
-function nodeaccess_nodereference_admin_settings() {
+function nodeaccess_nodereference_admin_settings($form, &$form_state) {
   $form['nodeaccess_nodereference_priority'] = array(
     '#type' => 'weight',
     '#title' => t('Set node grants priority for Node access node reference'),
@@ -58,7 +63,7 @@ function nodeaccess_nodereference_admin_settings() {
 /**
  * Submit function for the system settings form for nodeaccess_nodereference.
  */
-function nodeaccess_nodereference_admin_settings_submit() {
+function nodeaccess_nodereference_admin_settings_submit($form, &$form_state) {
   node_access_needs_rebuild(TRUE);
 }
 
@@ -179,47 +184,38 @@ function nodeaccess_nodereference_content_field_edit_form_submit($form, &$form_s
  * Implementation of hook_node_access_records().
  */
 function nodeaccess_nodereference_node_access_records($node) {
-  // Create an array of grants.
   $grants = array();
-  // Grab some info about this content type from CCK.
-  $content_types = content_types($node->type);
-  // Pull out the fields settings.
-  $fields = &$content_types['fields'];
-  // Set priority according to config.
+  $bundles = field_info_instances('node');
   $priority = variable_get('nodeaccess_nodereference_priority', 0);
-  // Ensure $fields is an array.
-  if (is_array($fields)) {
-    // Check each field in the node.
+
+  foreach ($bundles as $fields) {
     foreach ($fields as $field) {
-      // Check if it is a nodereference.
-      if ($field['type'] == 'nodereference') {
-        // Get the data about this nodereference field.
+      // TODO: Find a better way to target node_reference fields
+      if ($field['display']['default']['type'] == 'node_reference_default') {
         $data = nodeaccess_nodereference_field_settings($node->type, $field['field_name']);
-        // Check if this nodereference allows any access.
-        if (($data['view'] || $data['update'] || $data['delete'])) {
-          // Foreach referenced node
-          foreach ((array)$node->$field['field_name'] as $nodereference) {
-            // Load the node.
-            $reference = node_load($nodereference['nid']);
-            // Check if the node is loaded.
-            if ($reference) {
-              // Create a grant for it
-              if (!isset($grants[$nid])) {
-                $grants[$nid] = array(
-                  'realm' => 'nodeaccess_nodereference',
-                  'gid' => $nid,
-                  'priority' => $priority,
-                );
-              }
-              // And add the right settings to the grants.
-              if ($data['view']) {
-                $grants[$nid]['grant_view'] = 1;
-              }
-              if ($data['update']) {
-                $grants[$nid]['grant_update'] = 1;
-              }
-              if ($data['delete']) {
-                $grants[$nid]['grant_delete'] = 1;
+        if (!empty($data) && !empty($node->$field['field_name'])) {
+          if (($data['view'] || $data['update'] || $data['delete'])) {
+            foreach ((array)$node->$field['field_name'] as $language) {
+              foreach ($language as $nodereference) {
+                $reference = node_load($nodereference['nid']);
+                if ($reference) {
+                  if (!isset($grants[$nid])) {
+                    $grants[$nid] = array(
+                      'realm' => 'nodeaccess_nodereference',
+                      'gid' => $nid,
+                      'priority' => $priority,
+                    );
+                  }
+                  if ($data['view']) {
+                    $grants[$nid]['grant_view'] = 1;
+                  }
+                  if ($data['update']) {
+                    $grants[$nid]['grant_update'] = 1;
+                  }
+                  if ($data['delete']) {
+                    $grants[$nid]['grant_delete'] = 1;
+                  }
+                }
               }
             }
           }
