@@ -90,7 +90,9 @@ function nodeaccess_nodereference_node_grants($account, $op) {
           $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $reference;
         }
       }
-      cache_set('nodeaccess_nodereference_' . $account->uid . '_' . $op, $grants[$account->uid][$op]['nodeaccess_nodereference']);
+      if (isset($grants[$account->uid][$op]['nodeaccess_nodereference'])) {
+        cache_set('nodeaccess_nodereference_' . $account->uid . '_' . $op, $grants[$account->uid][$op]['nodeaccess_nodereference']);
+      }
     }
     else {
       $grants[$account->uid][$op]['nodeaccess_nodereference'] = $cached_grants;
