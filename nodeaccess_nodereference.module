@@ -195,7 +195,7 @@ function nodeaccess_nodereference_node_access_records($node) {
                 if ($reference = node_load($nodereference['nid'])) {
                   $grants[] = array(
                     'realm' => 'nodeaccess_nodereference',
-                    'gid' => $node->nid,
+                    'gid' => $reference->nid,
                     'priority' => $priority,
                     'grant_view' => $data['view'],
                     'grant_update' => $data['update'],
