@@ -86,7 +86,8 @@ function nodeaccess_nodereference_node_grants($account, $op) {
       $grants[$account->uid][$op] = array();
       $references = nodeaccess_nodereference_get_referenced();
       foreach ($references as $reference) {
-        if ($reference_node = node_load($reference) && node_access($op, $reference_node, $account)) {
+        $reference_node = node_load($reference);
+        if (!empty($reference_node) && node_access($op, $reference_node, $account)) {
           $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $reference;
         }
       }
@@ -95,7 +96,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
       }
     }
     else {
-      $grants[$account->uid][$op]['nodeaccess_nodereference'] = $cached_grants;
+      $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $cached_grants->data;
     }
   }
   $grants[$account->uid][$op]['nodeaccess_nodereference_author'][] = $account->uid;
