@@ -255,3 +255,38 @@ function nodeaccess_nodereference_field_settings($field_name, $variable = NULL) 
     return $data[$field_name];
   }
 }
+
+/**
+ * Implements of hook_node_access_explain().
+ *
+ * This gives the Devel module nice information to display when
+ * debugging node grants.
+ */
+function nodeaccess_nodereference_node_access_explain($row) {
+  if (in_array($row->realm, array('nodeaccess_nodereference', 'nodeaccess_nodereference_author'))) {
+    foreach (array('view', 'update', 'delete') as $op) {
+      $gop = 'grant_' . $op;
+      if (!empty($row->$gop)) {
+        $ops[] = $op;
+      }
+    }
+
+    $do = implode('/', $ops);
+
+    switch ($row->realm) {
+      case 'nodeaccess_nodereference':
+        $reference = node_load($row->gid);
+        return t(
+          'Users that may !do referenced node %node may !do this node',
+          array('%node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
+        );
+      case 'nodeaccess_nodereference_author':
+        $account = user_load($row->gid);
+        return t(
+          'Node author %name may !do this node',
+          array('%name' => $account->name, '!do' => $do)
+        );
+    }
+  }
+}
+
