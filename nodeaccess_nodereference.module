@@ -41,13 +41,13 @@ function nodeaccess_nodereference_admin_settings($form, &$form_state) {
     '#default_value' => variable_get('nodeaccess_nodereference_author_view', 1),
     '#description' => t('Grants <em>view</em> access to authors.  Use this if not using other node access modules to set author access.'),
   );
-  $form['nodeaccess_userreference_author_update'] = array(
+  $form['nodeaccess_nodereference_author_update'] = array(
     '#type' => 'checkbox',
     '#title' => t('Grant <em>edit</em> access to node authors'),
     '#default_value' => variable_get('nodeaccess_nodereference_author_update', 1),
     '#description' => t('Grants <em>edit</em> access to authors.  Use this if not using other node access modules to set author access.'),
   );
-  $form['nodeaccess_userreference_author_delete'] = array(
+  $form['nodeaccess_nodereference_author_delete'] = array(
     '#type' => 'checkbox',
     '#title' => t('Grant <em>delete</em> access to node authors'),
     '#default_value' => variable_get('nodeaccess_nodereference_author_delete', 1),
