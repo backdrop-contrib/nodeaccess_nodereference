@@ -96,7 +96,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
       }
     }
     else {
-      $grants[$account->uid][$op]['nodeaccess_nodereference'][] = $cached_grants->data;
+      $grants[$account->uid][$op]['nodeaccess_nodereference'] = $cached_grants->data;
     }
   }
   $grants[$account->uid][$op]['nodeaccess_nodereference_author'][] = $account->uid;
