@@ -92,14 +92,14 @@ function nodeaccess_nodereference_node_grants($account, $op) {
         }
       }
       if (isset($grants[$account->uid][$op]['nodeaccess_nodereference'])) {
-        cache_set('nodeaccess_nodereference_' . $account->uid . '_' . $op, $grants[$account->uid][$op]['nodeaccess_nodereference']);
+        $grants[$account->uid][$op]['nodeaccess_nodereference_author'][] = $account->uid;
+        cache_set('nodeaccess_nodereference_' . $account->uid . '_' . $op, $grants[$account->uid][$op]);
       }
     }
     else {
-      $grants[$account->uid][$op]['nodeaccess_nodereference'] = $cached_grants->data;
+      $grants[$account->uid][$op] = $cached_grants->data;
     }
   }
-  $grants[$account->uid][$op]['nodeaccess_nodereference_author'][] = $account->uid;
   return $grants[$account->uid][$op];
 }
 
