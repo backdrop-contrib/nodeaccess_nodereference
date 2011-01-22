@@ -187,7 +187,7 @@ function nodeaccess_nodereference_node_access_records($node) {
 
   foreach ($bundles as $fields) {
     foreach ($fields as $field) {
-      if ($field['widget']['module'] == 'node_reference') {
+      if ($field['display']['default']['module'] == 'node_reference') {
         $data = nodeaccess_nodereference_field_settings($field['field_name']);
         if (!empty($data) && !empty($node->$field['field_name'])) {
           if (($data['view'] || $data['update'] || $data['delete'])) {
