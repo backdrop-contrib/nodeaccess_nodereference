@@ -194,14 +194,23 @@ function nodeaccess_nodereference_node_access_records($node) {
             foreach ((array)$node->$field['field_name'] as $language) {
               foreach ($language as $nodereference) {
                 if ($reference = node_load($nodereference['nid'])) {
-                  $grants[] = array(
-                    'realm' => 'nodeaccess_nodereference',
-                    'gid' => $reference->nid,
-                    'priority' => $priority,
-                    'grant_view' => $data['view'],
-                    'grant_update' => $data['update'],
-                    'grant_delete' => $data['delete'],
-                  );
+                  $nid = $reference->nid;
+                  if (!isset($grants[$nid])) {
+                    $grants[$nid] = array(
+                      'realm' => 'nodeaccess_nodereference',
+                      'gid' => $nid,
+                      'priority' => $priority,
+                    );
+                  }
+                  if ($data['view']) {
+                    $grants[$nid]['grant_view'] = 1;
+                  }
+                  if ($data['update']) {
+                    $grants[$nid]['grant_update'] = 1;
+                  }
+                  if ($data['delete']) {
+                    $grants[$nid]['grant_delete'] = 1;
+                  }
                 }
               }
             }
