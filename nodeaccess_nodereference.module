@@ -196,12 +196,17 @@ function nodeaccess_nodereference_node_access_records($node) {
                 if ($reference = node_load($nodereference['nid'])) {
                   $nid = $reference->nid;
                   if (!isset($grants[$nid])) {
+                    // Setup the record.
                     $grants[$nid] = array(
                       'realm' => 'nodeaccess_nodereference',
                       'gid' => $nid,
                       'priority' => $priority,
+                      'grant_view' => 0,
+                      'grant_update' => 0,
+                      'grant_delete' => 0,
                     );
                   }
+                  // Add the grants needed, so as not to override previous iterations.
                   if ($data['view']) {
                     $grants[$nid]['grant_view'] = 1;
                   }
