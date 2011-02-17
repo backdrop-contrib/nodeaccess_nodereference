@@ -52,7 +52,7 @@ function nodeaccess_nodereference_get_referenced() {
   $settings = variable_get('nodeaccess_nodereference', array());
   foreach ($settings as $type => $fields) {
     foreach ($fields as $field => $data) {
-      if (($data['view'] || $data['update'] || $data['delete'])) {
+      if (isset($data['referenced']) && ($data['referenced']['view'] || $data['referenced']['update'] || $data['referenced']['delete'])) {
         $result = db_query("SELECT " . $field . "_nid AS reference FROM {field_data_" . $field . "}");
         foreach ($result as $row) {
           $references[$row['reference']] = $row->reference;
@@ -188,41 +188,39 @@ function nodeaccess_nodereference_node_access_records($node) {
       if ($field['display']['default']['module'] == 'node_reference') {
         $data = nodeaccess_nodereference_field_settings($bundle_name, $field['field_name']);
         if (!empty($data) && !empty($node->$field['field_name'])) {
-          if (!empty($data) && !empty($node->$field['field_name'])) {
-            foreach ((array)$node->$field['field_name'] as $language) {
-              foreach ($language as $nodereference) {
-                if ($nodereference['nid']) {
-                  nodeaccess_nodereference_add_grant(
-                    $grants,
-                    'nodeaccess_nodereference',
-                    $nodereference['nid'],
-                    $data['priority'],
-                    $data['referenced']
-                  );
-                }
-              }
-              // If there are grants set, also add the author and view-all grants.
-              // These will fire for each non-empty nodeaccess_nodereference field,
-              // but redundant calls will be correctly handled by the helper function:
-              // nodeaccess_nodereference_add_grant().
-              if (!empty($grants)) {
-                // Add author grants.
+          foreach ((array)$node->$field['field_name'] as $language) {
+            foreach ($language as $nodereference) {
+              if ($nodereference['nid']) {
                 nodeaccess_nodereference_add_grant(
                   $grants,
-                  'nodeaccess_nodereference_author',
-                  $node->uid,
+                  'nodeaccess_nodereference',
+                  $nodereference['nid'],
                   $data['priority'],
-                  $data['author']
-                );
-                // Add all grants.
-                nodeaccess_nodereference_add_grant(
-                  $grants,
-                  'nodeaccess_nodereference_all',
-                  1,
-                  $data['priority'],
-                  $data['all']
+                  $data['referenced']
                 );
               }
+            }
+            // If there are grants set, also add the author and view-all grants.
+            // These will fire for each non-empty nodeaccess_nodereference field,
+            // but redundant calls will be correctly handled by the helper function:
+            // nodeaccess_nodereference_add_grant().
+            if (!empty($grants)) {
+              // Add author grants.
+              nodeaccess_nodereference_add_grant(
+                $grants,
+                'nodeaccess_nodereference_author',
+                $node->uid,
+                $data['priority'],
+                $data['author']
+              );
+              // Add all grants.
+              nodeaccess_nodereference_add_grant(
+                $grants,
+                'nodeaccess_nodereference_all',
+                1,
+                $data['priority'],
+                $data['all']
+              );
             }
           }
         }
