@@ -10,7 +10,10 @@
  * Implements hook_node_grants().
  */
 function nodeaccess_nodereference_node_grants($account, $op) {
+  // $grants stores known grants for account/op combos, because the grant
+  // calculations can be exhaustive.  Proper caching is also used.
   static $grants = array();
+
   if (!isset($grants[$account->uid][$op])) {
     if (variable_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
       // Clear the cache.
@@ -20,13 +23,33 @@ function nodeaccess_nodereference_node_grants($account, $op) {
     }
     else {
       $cached_grants = cache_get('nodeaccess_nodereference_' . $account->uid . '_' . $op);
+      $grants[$account->uid][$op] = $cached_grants->data;
     }
+
     if (empty($cached_grants)) {
+      // $current_references stores an array of node IDs for referenced nodes that
+      // are currently being node_access() checked by this function, to prevent
+      // recursively nested node_access() checking which causes an endless loop.
+      static $current_references = array();
+      // $known_node_access stores an array of results to calls to node_access()
+      // for that account/op/node ID.
+      static $known_node_access = array();
+
       $rights = array();
       $references = nodeaccess_nodereference_get_referenced();
       foreach ($references as $reference) {
-        $reference_node = node_load($reference);
-        if (!empty($reference_node) && node_access($op, $reference_node, $account)) {
+        if (!isset($known_node_access[$account->uid][$op][$reference])) {
+          if (!isset($current_references[$reference])) {
+            $reference_node = node_load($reference);
+            $current_references[$reference] = $reference;
+            $known_node_access[$account->uid][$op][$reference] = node_access($op, $reference_node, $account);
+            if (!empty($reference_node) && $known_node_access[$account->uid][$op][$reference]) {
+              $rights[] = $reference;
+            }
+            unset($current_references[$reference]);
+          }
+        }
+        elseif ($known_node_access[$account->uid][$op][$reference]) {
           $rights[] = $reference;
         }
       }
@@ -35,9 +58,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
       $grants[$account->uid][$op]['nodeaccess_nodereference_all'][] = 1;
       cache_set('nodeaccess_nodereference_' . $account->uid . '_' . $op, $grants[$account->uid][$op]);
     }
-    else {
-      $grants[$account->uid][$op] = $cached_grants->data;
-    }
+
   }
 
   return $grants[$account->uid][$op];
@@ -53,7 +74,7 @@ function nodeaccess_nodereference_get_referenced() {
   foreach ($settings as $type => $fields) {
     foreach ($fields as $field => $data) {
       if (isset($data['referenced']) && ($data['referenced']['view'] || $data['referenced']['update'] || $data['referenced']['delete'])) {
-        $result = db_query("SELECT " . $field . "_nid AS reference FROM {field_data_" . $field . "}");
+        $result = db_query("SELECT " . $field . "_nid AS reference FROM {field_data_" . $field . "} WHERE " . $field . "_nid IS NOT NULL");
         foreach ($result as $row) {
           $references[$row['reference']] = $row->reference;
         }
@@ -185,9 +206,9 @@ function nodeaccess_nodereference_node_access_records($node) {
 
   foreach ($bundles as $bundle_name => $fields) {
     foreach ($fields as $field) {
-      if ($field['display']['default']['module'] == 'node_reference') {
+      if ($field['display']['default']['module'] == 'node_reference' && !empty($node->$field['field_name'])) {
         $data = nodeaccess_nodereference_field_settings($bundle_name, $field['field_name']);
-        if (!empty($data) && !empty($node->$field['field_name'])) {
+        if (!empty($data)) {
           foreach ((array)$node->$field['field_name'] as $language) {
             foreach ($language as $nodereference) {
               if ($nodereference['nid']) {
