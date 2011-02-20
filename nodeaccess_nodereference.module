@@ -23,7 +23,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
     }
     else {
       $cached_grants = cache_get('nodeaccess_nodereference_' . $account->uid . '_' . $op);
-      $grants[$account->uid][$op] = $cached_grants->data;
+      $grants[$account->uid][$op] = isset($cached_grants->data) ? $cached_grants->data : array();
     }
 
     if (empty($cached_grants)) {
@@ -76,7 +76,7 @@ function nodeaccess_nodereference_get_referenced() {
       if (isset($data['referenced']) && ($data['referenced']['view'] || $data['referenced']['update'] || $data['referenced']['delete'])) {
         $result = db_query("SELECT " . $field . "_nid AS reference FROM {field_data_" . $field . "} WHERE " . $field . "_nid IS NOT NULL");
         foreach ($result as $row) {
-          $references[$row['reference']] = $row->reference;
+          $references[$row->reference] = $row->reference;
         }
       }
     }
