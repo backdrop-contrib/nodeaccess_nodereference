@@ -1,4 +1,3 @@
-; $Id$
 
 Node access node reference README
 
