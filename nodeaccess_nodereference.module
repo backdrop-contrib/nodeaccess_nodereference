@@ -12,8 +12,10 @@ function nodeaccess_nodereference_node_grants($account, $op) {
   // $grants stores known grants for account/op combos, because the grant
   // calculations can be exhaustive.  Proper caching is also used.
   static $grants = array();
-
+  // Check the static cache for grants.
   if (!isset($grants[$account->uid][$op])) {
+    // The static cache is empty, check the drupal cache.
+    // First check if the cache can be trusted.
     if (variable_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
       // Clear the cache.
       cache_clear_all('nodeaccess_nodereference', 'cache', TRUE);
@@ -21,59 +23,205 @@ function nodeaccess_nodereference_node_grants($account, $op) {
       $cached_grants = NULL;
     }
     else {
+      // Cache is good, assign the data to the static cache.
       $cached_grants = cache_get('nodeaccess_nodereference_' . $account->uid . '_' . $op);
-      $grants[$account->uid][$op] = isset($cached_grants->data) ? $cached_grants->data : array();
+      $grants[$account->uid][$op] = $cached_grants->data;
     }
-
     if (empty($cached_grants)) {
-      // $current_references stores an array of node IDs for referenced nodes that
-      // are currently being node_access() checked by this function, to prevent
-      // recursively nested node_access() checking which causes an endless loop.
-      static $current_references = array();
-      // $known_node_access stores an array of results to calls to node_access()
-      // for that account/op/node ID.
-      static $known_node_access = array();
-
-      $rights = array();
-      $references = nodeaccess_nodereference_get_referenced();
-      foreach ($references as $reference) {
-        if (!isset($known_node_access[$account->uid][$op][$reference])) {
-          if (!isset($current_references[$reference])) {
-            $reference_node = node_load($reference);
-            $current_references[$reference] = $reference;
-            $known_node_access[$account->uid][$op][$reference] = node_access($op, $reference_node, $account);
-            if (!empty($reference_node) && $known_node_access[$account->uid][$op][$reference]) {
-              $rights[] = $reference;
-            }
-            unset($current_references[$reference]);
-          }
-        }
-        elseif ($known_node_access[$account->uid][$op][$reference]) {
-          $rights[] = $reference;
-        }
+      // There were no cached grants, calculate the grants.
+      $result = nodeaccess_nodereference_calculate_grants($grants, $op, $account);
+      if (!empty($result)) {
+        // Function returned a value, it was incomplete and $grants was not
+        // affected, so return the result.
+        return $result;
       }
-      $grants[$account->uid][$op]['nodeaccess_nodereference'] = $rights;
-      $grants[$account->uid][$op]['nodeaccess_nodereference_author'][] = $account->uid;
-      $grants[$account->uid][$op]['nodeaccess_nodereference_all'][] = 1;
-      cache_set('nodeaccess_nodereference_' . $account->uid . '_' . $op, $grants[$account->uid][$op]);
     }
+  }
+  return $grants[$account->uid][$op];
+}
 
+/**
+ * Calculate grants for nodeaccess_nodereference_node_grants().
+ */
+function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
+  // $current_references stores an array of node IDs for referenced nodes that
+  // are currently being node_access() checked by this function, to prevent
+  // recursively nested node_access() checking which causes an endless loop.
+  static $current_references = array();
+  // $known_node_access stores an array of results to calls to node_access()
+  // for that account/op/node ID.
+  static $known_node_access = array();
+  // $parent_reference is set to the current reference before calling
+  // node_access() so that the child iteration of this function is aware why it
+  // is being called.
+  static $parent_reference = NULL;
+  // $child_completed is used to pass the value of $complete to the parent
+  // iteration.
+  static $child_completed = TRUE;
+  // $complete marks whether the results of this iteration are to be considered
+  // completed and therefore stored in cache. An iteration is not considered
+  // complete when:
+  //  - Recursion occurs on the same account/reference/operation combo. This
+  //    iteration will assume FALSE to prevent an endless loop, but this means
+  //    the data should not be relied upon in future calls.
+  //  - A child iteration is not complete (because of the previous reason).
+  $complete = TRUE;
+  // $do_cache is similar to $complete except it doesn't affect the static
+  // variable $child_completed.  $do_cache is set to FALSE when:
+  //  - This function is being called on behalf of a parent iteration.  The
+  //    cache should be based on the parent's calculations, not this iteration.
+  $do_cache = TRUE;
+
+  // Get info about whether we need cross access checking for this $op.
+  $cross_access = variable_get(
+    'nodeaccess_nodereference_cross_access',
+    array('view' => FALSE, 'update' => FALSE, 'delete' => FALSE)
+  );
+
+  // The access operations we check on the reference nodes will either be
+  // the current $op, or in situations where cross access checking is
+  // needed it will be all three operations.
+  if ($cross_access[$op]) {
+    $operations = array('view', 'update', 'delete');
+  }
+  else {
+    $operations = array($op);
   }
 
-  return $grants[$account->uid][$op];
+  // Track an array of node access grants, don't put them into static cache
+  // until later.
+  $rights = array();
+  // Get a list of all Node ID values from node reference fields.
+  $references = nodeaccess_nodereference_get_referenced($parent_reference);
+
+  if (!is_null($parent_reference)) {
+    // There is a parent reference, so do not cache this run.
+    $do_cache = FALSE;
+  }
+
+  // Iterate through each reference.
+  foreach ($references as $reference) {
+    // Set the static $parent_reference variable to the reference being done.
+    $parent_reference = $reference;
+    // Alias for easier code reading.
+    $known = &$known_node_access[$account->uid][$reference];
+    // Flags whether we already have the data needed for an $operation.
+    $needs_check = FALSE;
+    // Check each $operation to see if we're missing $known data.
+    foreach ($operations as $operation) {
+      if (!isset($known[$operation])) {
+        $needs_check = TRUE;
+      }
+    }
+
+    if ($needs_check) {
+      // This reference is missing $known value/s that we need, load it.
+      $reference_node = node_load($reference);
+      if (!empty($reference_node)) {
+        // Reference loaded successfully.
+
+        // Check each $operation on the referenced node.
+        foreach ($operations as $operation) {
+          if (!isset($known[$operation])) {
+            // We're missing an $operation or two, proceed with calculations.
+            if (!isset($current_references[$reference][$operation])) {
+              // This reference isn't in the list of ancestors, add to the list.
+              $current_references[$reference][$operation] = $reference;
+
+              // We don't want static caching in node_access() to intefere.
+              drupal_static_reset('node_access');
+
+              // Check node_access() and add the result to $known data.
+              $node_access = node_access($operation, $reference_node, $account);
+              // If the child completed fully, or node access was granted...
+              if ($child_completed || $node_access) {
+                // We can rely on this information in the future.
+                $known[$operation] = $node_access;
+              }
+              else {
+                // Flag this iteration as incomplete.
+                $complete = FALSE;
+                // Reset static variable.
+                $child_completed = TRUE;
+              }
+              // We're done with this reference, remove it from the list.
+              unset($current_references[$reference]);
+            }
+            else {
+              // Recursion, assume FALSE.
+              $complete = FALSE;
+              $node_access = FALSE;
+            }
+          }
+          else {
+            // Grab the value from known data.
+            $node_access = $known[$operation];
+          }
+          // Check if the node_access() return value is TRUE.
+          if ($node_access) {
+            // Add the reference as a grant on the relevant realm.
+            $rights['nodeaccess_nodereference_' . $operation][] = $reference;
+            // Nothing more we need to do for this reference.
+            break;
+          }
+        }
+      }
+    }
+    else {
+      // We have all the $known data we need, test the values of each
+      // operation and add the reference as a grant on the relevant
+      // realm.
+      foreach ($operations as $operation) {
+        if ($known[$operation]) {
+          $rights['nodeaccess_nodereference_' . $operation][] = $reference;
+        }
+      }
+    }
+  }
+  // Reset the $parent_reference variable.
+  $parent_reference = NULL;
+  // Add the author and all grants.
+  $rights['nodeaccess_nodereference_author'][] = $account->uid;
+  $rights['nodeaccess_nodereference_all'][] = 1;
+
+  if ($complete && $do_cache) {
+    // We have grants worked out completely, so add them to the caches.
+    // It is unsafe to store incomplete grants in any caches.
+    $grants[$account->uid][$op] = $rights;
+    // Use drupal cache to minimise how often this function needs to work out the grants.
+    cache_set('nodeaccess_nodereference_'. $account->uid .'_'. $op, $grants[$account->uid][$op]);
+  }
+  else {
+    if (!$complete) {
+      // Affect the static $child_completed variable.
+      $child_completed = FALSE;
+    }
+    return $rights;
+  }
 }
 
 /**
  * Get all referenced nodes that are referenced in a Node access node reference
  * field.
  */
-function nodeaccess_nodereference_get_referenced() {
+function nodeaccess_nodereference_get_referenced($nid = NULL) {
   $references = array();
   $settings = variable_get('nodeaccess_nodereference', array());
   foreach ($settings as $type => $fields) {
     foreach ($fields as $field => $data) {
-      if (isset($data['referenced']) && ($data['referenced']['view'] || $data['referenced']['update'] || $data['referenced']['delete'])) {
-        $result = db_query("SELECT " . $field . "_nid AS reference FROM {field_data_" . $field . "} WHERE " . $field . "_nid IS NOT NULL");
+      if (
+        isset($data['referenced']) &&
+        nodeaccess_nodereference_array_filter($data['referenced'])
+      ) {
+        $args = array();
+        $sql = 'SELECT DISTINCT ' . $field . '_nid AS reference '
+               . 'FROM {field_data_' . $field . '} '
+               . 'WHERE ' . $field . '_nid IS NOT NULL'
+        if (!is_null($nid)) {
+          $sql .= 'AND field_data.nid = :nid ';
+          $args[':nid'] = $nid;
+        }
+        $result = db_query($sql, $args);
         foreach ($result as $row) {
           $references[$row->reference] = $row->reference;
         }
@@ -81,6 +229,18 @@ function nodeaccess_nodereference_get_referenced() {
     }
   }
   return $references;
+}
+
+/**
+ * Apply array_filter() to an array recursively.
+ */
+function nodeaccess_nodereference_array_filter($input) {
+  foreach ($input as &$value) {
+    if (is_array($value)) {
+      $value = nodeaccess_nodereference_array_filter($value);
+    }
+  }
+  return array_filter($input);
 }
 
 /**
@@ -95,15 +255,41 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       '#tree' => TRUE,
     );
     $form['field']['settings']['nodeaccess_nodereference']['referenced'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Grants from referenced nodes'),
+    );
+    $form['field']['settings']['nodeaccess_nodereference']['referenced']['view'] = array(
       '#type' => 'checkboxes',
-      '#title' => t('Grants to pass on from referenced nodes'),
-      '#default_value' => isset($data['referenced']) ? $data['referenced'] : array('view'),
+      '#title' => t('If the user has <em>view</em> access to a referenced node'),
+      '#default_value' => isset($data['referenced']['view']) ? $data['referenced']['view'] : array('view'),
       '#options' => array(
-        'view' => t('View'),
-        'update' => t('Update'),
-        'delete' => t('Delete'),
+        'view' => t('Pass on <em>view</em> access'),
+        'update' => t('Grant <em>update</em> access'),
+        'delete' => t('Grant <em>delete</em> access'),
       ),
-      '#description' => t('These content access permissions will be granted if the user has the same access to one of the referenced nodes.'),
+      '#description' => t('These content access permissions will be granted to users that have view access to at least one of the referenced nodes.'),
+    );
+    $form['field']['settings']['nodeaccess_nodereference']['referenced']['update'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('If the user has <em>update</em> access to a referenced node'),
+      '#default_value' => isset($data['referenced']['update']) ? $data['referenced']['update'] : array(),
+      '#options' => array(
+        'update' => t('Pass on <em>update</em> access'),
+        'view' => t('Grant <em>view</em> access'),
+        'delete' => t('Grant <em>delete</em> access'),
+      ),
+      '#description' => t('These content access permissions will be granted to users that have update access to at least one of the referenced nodes.'),
+    );
+    $form['field']['settings']['nodeaccess_nodereference']['referenced']['delete'] = array(
+      '#type' => 'checkboxes',
+      '#title' => t('If the user has <em>delete</em> access to a referenced node'),
+      '#default_value' => isset($data['referenced']['delete']) ? $data['referenced']['delete'] : array(),
+      '#options' => array(
+        'delete' => t('Pass on <em>delete</em> access'),
+        'view' => t('Grant <em>view</em> access'),
+        'update' => t('Grant <em>update</em> access'),
+      ),
+      '#description' => t('These content access permissions will be granted to users that have delete access to at least one of the referenced nodes.'),
     );
     $form['field']['settings']['nodeaccess_nodereference']['author'] = array(
       '#type' => 'checkboxes',
@@ -144,6 +330,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_submit($form, &$
   $field_name = &$form_state['values']['instance']['field_name'];
   $bundle_name = &$form_state['values']['instance']['bundle'];
   nodeaccess_nodereference_field_settings($bundle_name, $field_name, $data);
+  nodeaccess_nodereference_check_cross_access();
   $type = &$form_state['values']['instance']['bundle'];
   $nodes = node_load_multiple(NULL, array('type' => $type));
   if ($nodes) {
@@ -211,13 +398,15 @@ function nodeaccess_nodereference_node_access_records($node) {
           foreach ((array)$node->$field['field_name'] as $language) {
             foreach ($language as $nodereference) {
               if ($nodereference['nid']) {
-                nodeaccess_nodereference_add_grant(
-                  $grants,
-                  'nodeaccess_nodereference',
-                  $nodereference['nid'],
-                  $data['priority'],
-                  $data['referenced']
-                );
+                foreach (array_keys($data['referenced']) as $operation) {
+                  nodeaccess_nodereference_add_grant(
+                    $grants,
+                    'nodeaccess_nodereference_'. $operation,
+                    $nodereference['nid'],
+                    $data['priority'],
+                    $data['referenced'][$operation]
+                  );
+                }
               }
             }
             // If there are grants set, also add the author and view-all grants.
@@ -281,6 +470,37 @@ function nodeaccess_nodereference_field_settings($bundle_name, $field_name, $var
 }
 
 /**
+ * Check for cross access.
+ *
+ * Cross access is our term for when a referenced node gives a different kind
+ * of access than the one that the reference is tested for. e.g. if a field
+ * gave users 'view' access to the node when they have 'update' access on the
+ * reference. This requires extra checking in
+ * nodeaccess_nodereference_node_grants(), so this is how we inform that
+ * function that this needs to be done.
+ */
+function nodeaccess_nodereference_check_cross_access() {
+  $data = variable_get('nodeaccess_nodereference', array());
+  $cross_access = array(
+    'view' => FALSE,
+    'update' => FALSE,
+    'delete' => FALSE,
+  );
+  foreach ($data as $type_name => $type_data) {
+    foreach ($type_data as $field_name => $field_data) {
+      foreach (array_keys($cross_access) as $check) {
+        foreach (array_keys($cross_access) as $grant) {
+          if ($check != $grant && $field_data['referenced'][$check][$grant]) {
+            $cross_access[$grant] = TRUE;
+          }
+        }
+      }
+    }
+  }
+  variable_set('nodeaccess_nodereference_cross_access', $cross_access);
+}
+
+/**
  * Implements of hook_node_access_explain().
  *
  * This gives the Devel module nice information to display when
@@ -291,7 +511,9 @@ function nodeaccess_nodereference_node_access_explain($row) {
     in_array(
       $row->realm,
       array(
-        'nodeaccess_nodereference',
+        'nodeaccess_nodereference_view',
+        'nodeaccess_nodereference_update',
+        'nodeaccess_nodereference_delete',
         'nodeaccess_nodereference_author',
         'nodeaccess_nodereference_all'
       )
@@ -308,11 +530,23 @@ function nodeaccess_nodereference_node_access_explain($row) {
     $do = implode('/', $ops);
 
     switch ($row->realm) {
-      case 'nodeaccess_nodereference':
+      case 'nodeaccess_nodereference_view':
         $reference = node_load($row->gid);
         return t(
-          'Users that may !do referenced node %node may !do this node',
-          array('%node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
+          'Users that may view referenced node !node may !do this node',
+          array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
+        );
+      case 'nodeaccess_nodereference_update':
+        $reference = node_load($row->gid);
+        return t(
+          'Users that may update referenced node !node may !do this node',
+          array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
+        );
+      case 'nodeaccess_nodereference_delete':
+        $reference = node_load($row->gid);
+        return t(
+          'Users that may delete referenced node !node may !do this node',
+          array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
         );
       case 'nodeaccess_nodereference_author':
         $account = user_load($row->gid);

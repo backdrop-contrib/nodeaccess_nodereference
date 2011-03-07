@@ -12,6 +12,7 @@ function nodeaccess_nodereference_uninstall() {
   // Remove variables.
   variable_del('nodeaccess_nodereference');
   variable_del('nodeaccess_nodereference_cache_needs_clear');
+  variable_del('nodeaccess_nodereference_cross_access');
 
   // Old variables.
   variable_del('nodeaccess_nodereference_priority');
@@ -27,7 +28,7 @@ function nodeaccess_nodereference_uninstall() {
  *
  * @see hook_update_N()
  */
-function nodeaccess_nodereference_update_6300() {
+function nodeaccess_nodereference_update_6100() {
   // Set author grants to 0, unless already set.
   $view = variable_get('nodeaccess_nodereference_author_view', 0);
   $update = variable_get('nodeaccess_nodereference_author_update', 0);
@@ -41,11 +42,7 @@ function nodeaccess_nodereference_update_6300() {
     ),
     'warning'
   );
-  $ret[] = array(
-    'success' => TRUE,
-    'query' => 'Updating author grants.',
-  );
-  return $ret;
+  return 'Updating author grants.';
 }
 
 /**
@@ -55,7 +52,7 @@ function nodeaccess_nodereference_update_6300() {
  *
  * @see hook_update_N()
  */
-function nodeaccess_nodereference_update_6301() {
+function nodeaccess_nodereference_update_6101() {
   // Get all old settings and move them over to the new storage.
   $data = array();
   $result = db_query("SELECT * FROM {variable} WHERE name LIKE :naur", array(':naur' => 'nodeaccess_nodereference_%'));
@@ -111,10 +108,28 @@ function nodeaccess_nodereference_update_6301() {
   variable_del('nodeaccess_nodereference_author_delete');
   variable_del('nodeaccess_nodereference_priority');
 
-  $ret[] = array(
-    'success' => TRUE,
-    'query' => 'Updating settings storage.',
-  );
-  return $ret;
+  return 'Updating settings storage.';
 }
 
+/**
+ * Implementation of hook_update_N().
+ *
+ * Update settings.
+ * Note this function is equivalent to nodeaccess_nodereference_update_6102
+ *
+ * @see hook_update_N()
+ */
+function nodeaccess_nodereference_update_7100() {
+  $data = variable_get('nodeaccess_nodereference', array());
+  foreach ($data as $type => &$type_data) {
+    foreach ($type_data as $field => &$field_data) {
+      $data[$type][$field]['referenced']['view'] = array('view' => $field_data['referenced']['view']);
+      $data[$type][$field]['referenced']['update'] = array('update' => $field_data['referenced']['update']);
+      $data[$type][$field]['referenced']['delete'] = array('delete' => $field_data['referenced']['delete']);
+    }
+  }
+  variable_set('nodeaccess_nodereference', $data);
+  nodeaccess_nodereference_check_cross_access();
+  node_access_needs_rebuild(TRUE);
+  return 'Updating settings.';
+}

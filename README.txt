@@ -29,4 +29,4 @@ USAGE
 -----
 Create a Node reference field in your content type, on the page where you 
 configure the properties of your field, you will also see settings for 
-granting access to the referenced user.
+granting access to users based on their access to referenced nodes.
