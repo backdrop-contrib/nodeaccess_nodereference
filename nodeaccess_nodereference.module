@@ -216,7 +216,7 @@ function nodeaccess_nodereference_get_referenced($nid = NULL) {
         $args = array();
         $sql = 'SELECT DISTINCT ' . $field . '_nid AS reference '
                . 'FROM {field_data_' . $field . '} '
-               . 'WHERE ' . $field . '_nid IS NOT NULL';
+               . 'WHERE ' . $field . '_nid IS NOT NULL ';
         if (!is_null($nid)) {
           $sql .= 'AND field_data.nid = :nid ';
           $args[':nid'] = $nid;
