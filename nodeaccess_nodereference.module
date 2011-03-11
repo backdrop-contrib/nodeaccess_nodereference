@@ -221,7 +221,7 @@ function nodeaccess_nodereference_get_referenced($nid = NULL) {
                . 'FROM {field_data_' . $field . '} '
                . 'WHERE ' . $field . '_nid IS NOT NULL ';
         if (!is_null($nid)) {
-          $sql .= 'AND field_data.nid = :nid ';
+          $sql .= 'AND entity_id = :nid ';
           $args[':nid'] = $nid;
         }
         $result = db_query($sql, $args);
