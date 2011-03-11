@@ -23,9 +23,8 @@ function nodeaccess_nodereference_node_grants($account, $op) {
       $cached_grants = NULL;
     }
     else {
-      // Cache is good, assign the data to the static cache.
+      // Cache is good.
       $cached_grants = cache_get('nodeaccess_nodereference_' . $account->uid . '_' . $op);
-      $grants[$account->uid][$op] = $cached_grants->data;
     }
     if (empty($cached_grants)) {
       // There were no cached grants, calculate the grants.
@@ -35,6 +34,10 @@ function nodeaccess_nodereference_node_grants($account, $op) {
         // affected, so return the result.
         return $result;
       }
+    }
+    else {
+      // Cache was good, assign the data to the static cache.
+      $grants[$account->uid][$op] = $cached_grants->data;
     }
   }
   return $grants[$account->uid][$op];
