@@ -395,7 +395,7 @@ function nodeaccess_nodereference_node_access_records($node) {
 
   foreach ($bundles as $bundle_name => $fields) {
     foreach ($fields as $field) {
-      if ($field['display']['default']['module'] == 'node_reference' && !empty($node->$field['field_name'])) {
+      if (isset($field['display']['default']['module']) && $field['display']['default']['module'] == 'node_reference' && !empty($node->$field['field_name'])) {
         $data = nodeaccess_nodereference_field_settings($bundle_name, $field['field_name']);
         if (!empty($data)) {
           foreach ((array)$node->$field['field_name'] as $language) {
