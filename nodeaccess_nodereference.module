@@ -531,39 +531,41 @@ function nodeaccess_nodereference_node_access_explain($row) {
       }
     }
 
-    $do = implode('/', $ops);
-
-    switch ($row->realm) {
-      case 'nodeaccess_nodereference_view':
-        $reference = node_load($row->gid);
-        return t(
-          'Users that may view referenced node !node may !do this node',
-          array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
-        );
-      case 'nodeaccess_nodereference_update':
-        $reference = node_load($row->gid);
-        return t(
-          'Users that may update referenced node !node may !do this node',
-          array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
-        );
-      case 'nodeaccess_nodereference_delete':
-        $reference = node_load($row->gid);
-        return t(
-          'Users that may delete referenced node !node may !do this node',
-          array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
-        );
-      case 'nodeaccess_nodereference_author':
-        $account = user_load($row->gid);
-        return t(
-          'Node author %name may !do this node',
-          array('%name' => $account->name, '!do' => $do)
-        );
-      case 'nodeaccess_nodereference_all':
-        return t(
-          'All users may !do this node',
-          array('!do' => $do)
-        );
+    if (!empty($ops)) {
+      $do = implode('/', $ops);
+      switch ($row->realm) {
+        case 'nodeaccess_nodereference_view':
+          $reference = node_load($row->gid);
+          return t(
+            'Users that may view referenced node !node may !do this node',
+            array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
+          );
+        case 'nodeaccess_nodereference_update':
+          $reference = node_load($row->gid);
+          return t(
+            'Users that may update referenced node !node may !do this node',
+            array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
+          );
+        case 'nodeaccess_nodereference_delete':
+          $reference = node_load($row->gid);
+          return t(
+            'Users that may delete referenced node !node may !do this node',
+            array('!node' => l($reference->title, 'node/' . $reference->nid), '!do' => $do)
+          );
+        case 'nodeaccess_nodereference_author':
+          $account = user_load($row->gid);
+          return t(
+            'Node author %name may !do this node',
+            array('%name' => $account->name, '!do' => $do)
+          );
+        case 'nodeaccess_nodereference_all':
+          return t(
+            'All users may !do this node',
+            array('!do' => $do)
+          );
+      }
     }
+
   }
 }
 
