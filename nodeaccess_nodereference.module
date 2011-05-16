@@ -569,3 +569,13 @@ function nodeaccess_nodereference_node_access_explain($row) {
   }
 }
 
+/**
+ * Implements hook_field_delete_instance().
+ */
+function nodeaccess_nodereference_field_delete_instance($instance) {
+  $data = variable_get('nodeaccess_nodereference', array());
+  if (isset($data[$instance['bundle']][$instance['field_name']])) {
+    unset($data[$instance['bundle']][$instance['field_name']]);
+    variable_set('nodeaccess_nodereference', $data);
+  }
+}
