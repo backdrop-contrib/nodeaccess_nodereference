@@ -159,3 +159,23 @@ function nodeaccess_nodereference_update_7101() {
   return 'Removed settings for deleted fields.';
 }
 
+/**
+ * Implements hook_update_N().
+ *
+ * Update settings to include the 'unused' setting.
+ *
+ * @see hook_update_N()
+ */
+function nodeaccess_nodereference_update_7102() {
+  $data = variable_get('nodeaccess_nodereference', array());
+  foreach ($data as $type => $type_data) {
+    foreach ($type_data as $field => $field_data) {
+      if (!isset($data[$type][$field]['unused'])) {
+        $data[$type][$field]['unused'] = 0;
+      }
+    }
+  }
+  variable_set('nodeaccess_nodereference', $data);
+
+  return 'Updating settings.';
+}

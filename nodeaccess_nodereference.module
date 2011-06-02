@@ -321,7 +321,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
         'update' => t('Update'),
         'delete' => t('Delete'),
       ),
-      '#description' => t('These content access permissions will be granted to the authors of nodes affected by grants passed on from referenced nodes.'),
+      '#description' => t('These content access permissions will be granted to the authors of nodes.'),
     );
     $form['field']['settings']['nodeaccess_nodereference']['all'] = array(
       '#type' => 'checkboxes',
@@ -330,7 +330,17 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       '#options' => array(
         'view' => t('View'),
       ),
-      '#description' => t('These content access permissions will be granted to all users for nodes affected by grants passed on from referenced nodes.'),
+      '#description' => t('These content access permissions will be granted to all users.'),
+    );
+    $form['field']['settings']['nodeaccess_nodereference']['unused'] = array(
+      '#type' => 'radios',
+      '#title' => t('When to set grants'),
+      '#default_value' => isset($data['unused']) ? $data['unused'] : 0,
+      '#options' => array(
+        0 => t('When the node reference field is in use'),
+        1 => t('Always'),
+      ),
+      '#description' => t('Determines whether to set grants when the field is not in use.'),
     );
     $form['field']['settings']['nodeaccess_nodereference']['priority'] = array(
       '#type' => 'weight',
@@ -434,7 +444,7 @@ function nodeaccess_nodereference_node_access_records($node) {
             // These will fire for each non-empty nodeaccess_nodereference field,
             // but redundant calls will be correctly handled by the helper function:
             // nodeaccess_nodereference_add_grant().
-            if (!empty($grants)) {
+            if ($data['unused'] || !empty($grants)) {
               // Add author grants.
               nodeaccess_nodereference_add_grant(
                 $grants,
