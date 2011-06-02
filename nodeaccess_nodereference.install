@@ -112,7 +112,7 @@ function nodeaccess_nodereference_update_6101() {
 }
 
 /**
- * Implementation of hook_update_N().
+ * Implements hook_update_N().
  *
  * Update settings.
  * Note this function is equivalent to nodeaccess_nodereference_update_6102
@@ -133,3 +133,29 @@ function nodeaccess_nodereference_update_7100() {
   node_access_needs_rebuild(TRUE);
   return 'Updating settings.';
 }
+
+/**
+ * Implements hook_update_N().
+ *
+ * Removed settings for deleted fields.
+ *
+ * @see hook_update_N()
+ */
+function nodeaccess_nodereference_update_7101() {
+  $info = field_info_instances('node');
+  $settings = variable_get('nodeaccess_nodereference', array());
+  foreach ($settings as $type => $fields) {
+    foreach ($fields as $field => $data) {
+       if (!isset($info[$type][$field])) {
+          unset($settings[$type][$field]);
+       }
+    }
+    if (empty($settings[$type])) {
+      unset($settings[$type]);
+    }
+  }
+  variable_set('nodeaccess_nodereference', $settings);
+
+  return 'Removed settings for deleted fields.';
+}
+
