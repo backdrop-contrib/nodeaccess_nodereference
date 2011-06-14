@@ -282,7 +282,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
     $form['field']['settings']['nodeaccess_nodereference']['referenced']['view'] = array(
       '#type' => 'checkboxes',
       '#title' => t('If the user has <em>view</em> access to a referenced node'),
-      '#default_value' => isset($data['referenced']['view']) ? $data['referenced']['view'] : array('view'),
+      '#default_value' => isset($data['referenced']['view']) ? $data['referenced']['view'] : array(),
       '#options' => array(
         'view' => t('Pass on <em>view</em> access'),
         'update' => t('Grant <em>update</em> access'),
@@ -315,7 +315,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
     $form['field']['settings']['nodeaccess_nodereference']['author'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Grants for author'),
-      '#default_value' => isset($data['author']) ? $data['author'] : array('view', 'update', 'delete'),
+      '#default_value' => isset($data['author']) ? $data['author'] : array(),
       '#options' => array(
         'view' => t('View'),
         'update' => t('Update'),
