@@ -419,24 +419,20 @@ function nodeaccess_nodereference_add_grant(&$grants, $realm, $gid, $priority, $
  */
 function nodeaccess_nodereference_node_access_records($node) {
   $grants = array();
-  $bundle_name = $node->type;
-  $fields = field_info_instances('node', $bundle_name);
-  foreach ($fields as $field) {
-    if (isset($field['display']['default']['module']) && $field['display']['default']['module'] == 'node_reference' && !empty($node->$field['field_name'])) {
-      $data = nodeaccess_nodereference_field_settings($bundle_name, $field['field_name']);
-      if (!empty($data)) {
-        foreach ((array)$node->$field['field_name'] as $language) {
-          foreach ($language as $nodereference) {
-            if ($nodereference['nid']) {
-              foreach (array_keys($data['referenced']) as $operation) {
-                nodeaccess_nodereference_add_grant(
-                  $grants,
-                  'nodeaccess_nodereference_'. $operation,
-                  $nodereference['nid'],
-                  $data['priority'],
-                  $data['referenced'][$operation]
-                );
-              }
+  $field_data = nodeaccess_nodereference_field_settings($node->type);
+  foreach ($field_data as $field_name => &$data) {
+    if (!empty($data) && !empty($node->$field_name)) {
+      foreach ((array)$node->$field_name as $language) {
+        foreach ($language as $node_reference) {
+          if ($node_reference['nid']) {
+            foreach (array_keys($data['referenced']) as $operation) {
+              nodeaccess_nodereference_add_grant(
+                $grants,
+                'nodeaccess_nodereference_'. $operation,
+                $node_reference['nid'],
+                $data['priority'],
+                $data['referenced'][$operation]
+              );
             }
           }
           // If there are grants set, also add the author and view-all grants.
@@ -487,14 +483,19 @@ function nodeaccess_nodereference_node_access_records($node) {
  * @return
  *   The stored or updated value of the settings for this field.
  */
-function nodeaccess_nodereference_field_settings($bundle_name, $field_name, $variable = NULL) {
+function nodeaccess_nodereference_field_settings($bundle_name, $field_name = NULL, $variable = NULL) {
   $data = variable_get('nodeaccess_nodereference', array());
-  if (isset($variable)) {
-    $data[$bundle_name][$field_name] = $variable;
-    variable_set('nodeaccess_nodereference', $data);
+  if (!is_null($field_name)) {
+    if (isset($variable)) {
+      $data[$bundle_name][$field_name] = $variable;
+      variable_set('nodeaccess_nodereference', $data);
+    }
+    if (isset($data[$bundle_name][$field_name])) {
+      return $data[$bundle_name][$field_name];
+    }
   }
-  if (isset($data[$bundle_name][$field_name])) {
-    return $data[$bundle_name][$field_name];
+  elseif (isset($data[$bundle_name])) {
+    return $data[$bundle_name];
   }
 }
 
