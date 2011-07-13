@@ -444,6 +444,7 @@ function nodeaccess_nodereference_node_access_records($node) {
         }
         */
 
+        // Add referenced user grants.
         $items = field_get_items('node', $node, $field_name);
         if (!empty($items)) {
           foreach ($items as &$node_reference) {
@@ -466,7 +467,7 @@ function nodeaccess_nodereference_node_access_records($node) {
             // Add a dummy grant for node 0 to block other users' access.
             nodeaccess_nodereference_add_grant(
               $grants,
-              'nodeaccess_nodereference',
+              'nodeaccess_nodereference_' . $operation,
               0,
               $data['priority'],
               $data['referenced'][$operation]
