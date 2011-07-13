@@ -441,14 +441,16 @@ function nodeaccess_nodereference_node_access_records($node) {
           }
         }
         if ($data['unused']) {
-          // Add a dummy grant for node 0 to block other users' access.
-          nodeaccess_userreference_add_grant(
-            $grants,
-            'nodeaccess_userreference',
-            0,
-            $data['priority'],
-            $data['referenced']
-          );
+          foreach (array_keys($data['referenced']) as $operation) {
+            // Add a dummy grant for node 0 to block other users' access.
+            nodeaccess_nodereference_add_grant(
+              $grants,
+              'nodeaccess_nodereference',
+              0,
+              $data['priority'],
+              $data['referenced'][$operation]
+            );
+          }
         }
         // If there are grants set, also add the author and view-all grants.
         // These will fire for each non-empty nodeaccess_nodereference field,
