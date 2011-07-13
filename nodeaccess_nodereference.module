@@ -423,6 +423,8 @@ function nodeaccess_nodereference_node_access_records($node) {
   if (!empty($field_data)) {
     foreach ($field_data as $field_name => &$data) {
       if (!empty($data)) {
+
+        /*
         if (!empty($node->$field_name)) {
           foreach ($node->$field_name as $language) {
             foreach ($language as $node_reference) {
@@ -430,7 +432,7 @@ function nodeaccess_nodereference_node_access_records($node) {
                 foreach (array_keys($data['referenced']) as $operation) {
                   nodeaccess_nodereference_add_grant(
                     $grants,
-                    'nodeaccess_nodereference_'. $operation,
+                    'nodeaccess_nodereference_' . $operation,
                     $node_reference['nid'],
                     $data['priority'],
                     $data['referenced'][$operation]
@@ -440,6 +442,25 @@ function nodeaccess_nodereference_node_access_records($node) {
             }
           }
         }
+        */
+
+        $items = field_get_items('node', $node, $field_name);
+        if (!empty($items)) {
+          foreach ($items as &$node_reference) {
+            if ($node_reference['nid']) {
+              foreach (array_keys($data['referenced']) as $operation) {
+                nodeaccess_nodereference_add_grant(
+                  $grants,
+                  'nodeaccess_nodereference_' . $operation,
+                  $node_reference['nid'],
+                  $data['priority'],
+                  $data['referenced'][$operation]
+                );
+              }
+            }
+          }
+        }
+
         if ($data['unused']) {
           foreach (array_keys($data['referenced']) as $operation) {
             // Add a dummy grant for node 0 to block other users' access.
