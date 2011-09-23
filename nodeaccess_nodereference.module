@@ -122,8 +122,6 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
 
   // Iterate through each reference.
   foreach ($references as $reference) {
-    // Set the static $parent_reference variable to the reference being done.
-    $parent_reference = $reference;
     // Alias for easier code reading.
     $known = &$known_node_access[$account->uid][$reference];
     // Flags whether we already have the data needed for an $operation.
@@ -143,6 +141,9 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
 
         // Check each $operation on the referenced node.
         foreach ($operations as $operation) {
+          // Set the static $parent_reference variable to the reference being done.
+          $parent_reference = $reference;
+
           if (!isset($known[$operation])) {
             // We're missing an $operation or two, proceed with calculations.
             if (!isset($current_references[$reference][$operation])) {
