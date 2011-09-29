@@ -419,32 +419,15 @@ function nodeaccess_nodereference_add_grant(&$grants, $realm, $gid, $priority, $
  * Implements hook_node_access_records().
  */
 function nodeaccess_nodereference_node_access_records($node) {
+  if (!$node->status) {
+    // Don't create grants for unpublished nodes.
+    return NULL;
+  }
   $grants = array();
   $field_data = nodeaccess_nodereference_field_settings($node->type);
   if (!empty($field_data)) {
     foreach ($field_data as $field_name => &$data) {
       if (!empty($data)) {
-
-        /*
-        if (!empty($node->$field_name)) {
-          foreach ($node->$field_name as $language) {
-            foreach ($language as $node_reference) {
-              if ($node_reference['nid']) {
-                foreach (array_keys($data['referenced']) as $operation) {
-                  nodeaccess_nodereference_add_grant(
-                    $grants,
-                    'nodeaccess_nodereference_' . $operation,
-                    $node_reference['nid'],
-                    $data['priority'],
-                    $data['referenced'][$operation]
-                  );
-                }
-              }
-            }
-          }
-        }
-        */
-
         // Add referenced user grants.
         $items = field_get_items('node', $node, $field_name);
         if (!empty($items)) {
