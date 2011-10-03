@@ -313,6 +313,16 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       ),
       '#description' => t('These content access permissions will be granted to users that have delete access to at least one of the referenced nodes.'),
     );
+    $form['field']['settings']['nodeaccess_nodereference']['referenced']['published'] = array(
+      '#type' => 'select',
+      '#title' => t('Unpublished nodes'),
+      '#title_display' => 'none',
+      '#default_value' => isset($data['referenced']['published']) ? $data['referenced']['published'] : 0,
+      '#options' => array(
+        0 => t('Give these grants for published nodes only'),
+        1 => t('Give these grants for published and unpublished nodes'),
+      ),
+    );
     $form['field']['settings']['nodeaccess_nodereference']['author'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Grants for author'),
@@ -324,6 +334,16 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       ),
       '#description' => t('These content access permissions will be granted to the authors of nodes.'),
     );
+    $form['field']['settings']['nodeaccess_nodereference']['author_published'] = array(
+      '#type' => 'select',
+      '#title' => t('Unpublished nodes'),
+      '#title_display' => 'none',
+      '#default_value' => isset($data['author_published']) ? $data['author_published'] : 0,
+      '#options' => array(
+        0 => t('Give these grants for published nodes only'),
+        1 => t('Give these grants for published and unpublished nodes'),
+      ),
+    );
     $form['field']['settings']['nodeaccess_nodereference']['all'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Grants for all users'),
@@ -332,6 +352,16 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
         'view' => t('View'),
       ),
       '#description' => t('These content access permissions will be granted to all users.'),
+    );
+    $form['field']['settings']['nodeaccess_nodereference']['all_published'] = array(
+      '#type' => 'select',
+      '#title' => t('Unpublished nodes'),
+      '#title_display' => 'none',
+      '#default_value' => isset($data['all_published']) ? $data['all_published'] : 0,
+      '#options' => array(
+        0 => t('Give these grants for published nodes only'),
+        1 => t('Give these grants for published and unpublished nodes'),
+      ),
     );
     $form['field']['settings']['nodeaccess_nodereference']['unused'] = array(
       '#type' => 'radios',
@@ -419,66 +449,72 @@ function nodeaccess_nodereference_add_grant(&$grants, $realm, $gid, $priority, $
  * Implements hook_node_access_records().
  */
 function nodeaccess_nodereference_node_access_records($node) {
-  if (!$node->status) {
-    // Don't create grants for unpublished nodes.
-    return NULL;
-  }
   $grants = array();
   $field_data = nodeaccess_nodereference_field_settings($node->type);
   if (!empty($field_data)) {
     foreach ($field_data as $field_name => &$data) {
       if (!empty($data)) {
-        // Add referenced user grants.
-        $items = field_get_items('node', $node, $field_name);
-        if (!empty($items)) {
-          foreach ($items as &$node_reference) {
-            if ($node_reference['nid']) {
-              foreach (array_keys($data['referenced']) as $operation) {
-                nodeaccess_nodereference_add_grant(
-                  $grants,
-                  'nodeaccess_nodereference_' . $operation,
-                  $node_reference['nid'],
-                  $data['priority'],
-                  $data['referenced'][$operation]
-                );
+
+        if (!empty($node->status) || !empty($data['referenced']['published'])) {
+
+          // Add referenced user grants.
+          $items = field_get_items('node', $node, $field_name);
+          if (!empty($items)) {
+            foreach ($items as &$node_reference) {
+              if ($node_reference['nid']) {
+                foreach (array_keys($data['referenced']) as $operation) {
+                  nodeaccess_nodereference_add_grant(
+                    $grants,
+                    'nodeaccess_nodereference_' . $operation,
+                    $node_reference['nid'],
+                    $data['priority'],
+                    $data['referenced'][$operation]
+                  );
+                }
               }
             }
           }
+
+          if ($data['unused']) {
+            foreach (array_keys($data['referenced']) as $operation) {
+              // Add a dummy grant for node 0 to block other users' access.
+              nodeaccess_nodereference_add_grant(
+                $grants,
+                'nodeaccess_nodereference_' . $operation,
+                0,
+                $data['priority'],
+                $data['referenced'][$operation]
+              );
+            }
+          }
+
         }
 
-        if ($data['unused']) {
-          foreach (array_keys($data['referenced']) as $operation) {
-            // Add a dummy grant for node 0 to block other users' access.
-            nodeaccess_nodereference_add_grant(
-              $grants,
-              'nodeaccess_nodereference_' . $operation,
-              0,
-              $data['priority'],
-              $data['referenced'][$operation]
-            );
-          }
-        }
         // If there are grants set, also add the author and view-all grants.
         // These will fire for each non-empty nodeaccess_nodereference field,
         // but redundant calls will be correctly handled by the helper function:
         // nodeaccess_nodereference_add_grant().
         if (!empty($grants)) {
-          // Add author grants.
-          nodeaccess_nodereference_add_grant(
-            $grants,
-            'nodeaccess_nodereference_author',
-            $node->uid,
-            $data['priority'],
-            $data['author']
-          );
-          // Add all grants.
-          nodeaccess_nodereference_add_grant(
-            $grants,
-            'nodeaccess_nodereference_all',
-            1,
-            $data['priority'],
-            $data['all']
-          );
+          if (!empty($node->status) || !empty($data['author_published'])) {
+            // Add author grants.
+            nodeaccess_nodereference_add_grant(
+              $grants,
+              'nodeaccess_nodereference_author',
+              $node->uid,
+              $data['priority'],
+              $data['author']
+            );
+          }
+          if (!empty($node->status) || !empty($data['all_published'])) {
+            // Add all grants.
+            nodeaccess_nodereference_add_grant(
+              $grants,
+              'nodeaccess_nodereference_all',
+              1,
+              $data['priority'],
+              $data['all']
+            );
+          }
         }
       }
 
