@@ -183,8 +183,10 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
           if ($node_access) {
             // Add the reference as a grant on the relevant realm.
             $rights['nodeaccess_nodereference_' . $operation][] = $reference;
-            // Nothing more we need to do for this reference.
-            break;
+            if (!$cross_access[$op]) {
+              // Nothing more we need to do for this reference.
+              break;
+            }
           }
         }
       }
