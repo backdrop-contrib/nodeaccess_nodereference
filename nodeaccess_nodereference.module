@@ -9,7 +9,7 @@
  * Implementation of hook_init().
  *
  * Forces checks on cross access grants upon page load.  Issue #1116920.
- */
+
 function nodeaccess_nodereference_init() {
   // Get info about whether we need cross access checking for each $op.
   $cross_access = array_filter(
@@ -21,7 +21,7 @@ function nodeaccess_nodereference_init() {
   foreach (array_keys($cross_access) as $op) {
     nodeaccess_nodereference_node_grants($GLOBALS['user'], $op);
   }
-}
+} */
 
 /**
  * Implements hook_node_grants().
