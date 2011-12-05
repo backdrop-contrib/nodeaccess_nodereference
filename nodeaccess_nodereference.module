@@ -273,16 +273,16 @@ function nodeaccess_nodereference_array_filter($input) {
 function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $form_state) {
   if ($form['#field']['type'] == 'node_reference' && $form['#instance']['entity_type'] == 'node') {
     $data = nodeaccess_nodereference_field_settings($form['#instance']['bundle'], $form['#field']['field_name']);
-    $form['field']['settings']['nodeaccess_nodereference'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference'] = array(
       '#type' => 'fieldset',
       '#title' => t('Node access node reference'),
       '#tree' => TRUE,
     );
-    $form['field']['settings']['nodeaccess_nodereference']['referenced'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['referenced'] = array(
       '#type' => 'fieldset',
       '#title' => t('Grants from referenced nodes'),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['referenced']['view'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['referenced']['view'] = array(
       '#type' => 'checkboxes',
       '#title' => t('If the user has <em>view</em> access to a referenced node'),
       '#default_value' => isset($data['referenced']['view']) ? $data['referenced']['view'] : array(),
@@ -293,7 +293,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       ),
       '#description' => t('These content access permissions will be granted to users that have view access to at least one of the referenced nodes.'),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['referenced']['update'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['referenced']['update'] = array(
       '#type' => 'checkboxes',
       '#title' => t('If the user has <em>update</em> access to a referenced node'),
       '#default_value' => isset($data['referenced']['update']) ? $data['referenced']['update'] : array(),
@@ -304,7 +304,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       ),
       '#description' => t('These content access permissions will be granted to users that have update access to at least one of the referenced nodes.'),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['referenced']['delete'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['referenced']['delete'] = array(
       '#type' => 'checkboxes',
       '#title' => t('If the user has <em>delete</em> access to a referenced node'),
       '#default_value' => isset($data['referenced']['delete']) ? $data['referenced']['delete'] : array(),
@@ -315,7 +315,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       ),
       '#description' => t('These content access permissions will be granted to users that have delete access to at least one of the referenced nodes.'),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['referenced']['published'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['referenced']['published'] = array(
       '#type' => 'select',
       '#title' => t('Unpublished nodes'),
       '#title_display' => 'none',
@@ -325,7 +325,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
         1 => t('Give these grants for published and unpublished nodes'),
       ),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['author'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['author'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Grants for author'),
       '#default_value' => isset($data['author']) ? $data['author'] : array(),
@@ -336,7 +336,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       ),
       '#description' => t('These content access permissions will be granted to the authors of nodes.'),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['author_published'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['author_published'] = array(
       '#type' => 'select',
       '#title' => t('Unpublished nodes'),
       '#title_display' => 'none',
@@ -346,7 +346,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
         1 => t('Give these grants for published and unpublished nodes'),
       ),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['all'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['all'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Grants for all users'),
       '#default_value' => isset($data['all']) ? $data['all'] : array(),
@@ -355,7 +355,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       ),
       '#description' => t('These content access permissions will be granted to all users.'),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['all_published'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['all_published'] = array(
       '#type' => 'select',
       '#title' => t('Unpublished nodes'),
       '#title_display' => 'none',
@@ -365,7 +365,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
         1 => t('Give these grants for published and unpublished nodes'),
       ),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['unused'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['unused'] = array(
       '#type' => 'radios',
       '#title' => t('When to set grants'),
       '#default_value' => isset($data['unused']) ? $data['unused'] : 0,
@@ -375,7 +375,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       ),
       '#description' => t('Determines whether to set grants when the field is not in use.'),
     );
-    $form['field']['settings']['nodeaccess_nodereference']['priority'] = array(
+    $form['instance']['settings']['nodeaccess_nodereference']['priority'] = array(
       '#type' => 'weight',
       '#title' => t('Priority'),
       '#default_value' => isset($data['priority']) ? $data['priority'] : 0,
@@ -390,7 +390,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
  * Extra submit function for Node reference field config.
  */
 function nodeaccess_nodereference_form_field_ui_field_edit_form_submit($form, &$form_state) {
-  $data = &$form_state['values']['field']['settings']['nodeaccess_nodereference'];
+  $data = &$form_state['values']['instance']['settings']['nodeaccess_nodereference'];
   $field_name = &$form_state['values']['instance']['field_name'];
   $bundle_name = &$form_state['values']['instance']['bundle'];
   nodeaccess_nodereference_field_settings($bundle_name, $field_name, $data);
