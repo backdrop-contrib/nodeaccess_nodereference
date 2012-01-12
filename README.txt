@@ -5,28 +5,37 @@ CONTENTS OF THIS FILE
 ----------------------
 
   * Introduction
+  * Dependencies
   * Installation
   * Usage
   
 
 INTRODUCTION
 ------------
-Maintainer: Daniel Braksator (http://drupal.org/user/134005)
+Gives content access permissions to users if they have access to content that is
+referenced with node reference.  Checks view, update, and delete grant 
+operations, and can pass those on to the referencing content, or trigger a
+different grant configuration according to settings.
 
 Project page: http://drupal.org/project/nodeaccess_nodereference.
 
 
+DEPENDENCIES
+------------
+This module requires the Node reference module which is part of the References
+project: http://drupal.org/project/references
+
+
 INSTALLATION
 ------------
-1. Install Node reference from the References project:
-   http://drupal.org/project/references
-2. Copy nodeaccess_nodereference folder to modules directory.
-   (Usually 'sites/all/modules')
-3. At 'admin/build/modules' enable the Node access node reference module.
+Install and enable the Node access node reference module.
+For detailed instructions on installing contributed modules see:
+http://drupal.org/documentation/install/modules-themes/modules-7
 
 
 USAGE
 -----
-Create a Node reference field in your content type, on the page where you 
-configure the properties of your field, you will also see settings for 
-granting access to users based on their access to referenced nodes.
+Create a Node reference field in a content type using the Field UI.  The field's
+configuration page will contain the settings for Node access node reference.
+For detailed instructions on using the Field UI see: 
+http://drupal.org/documentation/modules/field-ui
