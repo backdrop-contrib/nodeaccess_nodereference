@@ -22,6 +22,22 @@ function nodeaccess_nodereference_uninstall() {
 }
 
 /**
+ * Implements hook_requirements().
+ */
+function nodeaccess_nodereference_requirements() {
+  $requirements = array();
+  if (!module_exists('node_reference') && !module_exists('entityreference')) {
+    $t = get_t();
+    $requirements['node_reference'] = array(
+      'title' => $t('Node reference module'),
+      'severity' => REQUIREMENT_ERROR,
+      'description' => $t('You need a module to reference content.  Use either <em>Entity reference</em> or <em>References</em>.'),
+    );
+  }
+  return $requirements;
+}
+
+/**
  * Implements hook_update_N().
  *
  * Unset author grants for updated installations.

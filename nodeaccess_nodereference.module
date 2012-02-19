@@ -6,24 +6,6 @@
  */
 
 /**
- * Implementation of hook_init().
- *
- * Forces checks on cross access grants upon page load.  Issue #1116920.
-
-function nodeaccess_nodereference_init() {
-  // Get info about whether we need cross access checking for each $op.
-  $cross_access = array_filter(
-    variable_get(
-      'nodeaccess_nodereference_cross_access',
-      array('view' => FALSE, 'update' => FALSE, 'delete' => FALSE)
-    )
-  );
-  foreach (array_keys($cross_access) as $op) {
-    nodeaccess_nodereference_node_grants($GLOBALS['user'], $op);
-  }
-} */
-
-/**
  * Implements hook_node_grants().
  */
 function nodeaccess_nodereference_node_grants($account, $op) {
@@ -238,9 +220,19 @@ function nodeaccess_nodereference_get_referenced($nid = NULL) {
         nodeaccess_nodereference_array_filter($data['referenced'])
       ) {
         $args = array();
-        $sql = 'SELECT DISTINCT ' . $field . '_nid AS reference '
-               . 'FROM {field_data_' . $field . '} '
-               . 'WHERE ' . $field . '_nid IS NOT NULL ';
+        // @todo: This !empty() can eventually be removed.
+        if (!empty($data['field_type']) && $data['field_type'] == 'entityreference') {
+          $sql = 'SELECT DISTINCT ' . $field . '_target_id AS reference '
+             . 'FROM {field_data_' . $field . '} '
+             . 'WHERE ' . $field . '_nid IS NOT NULL ';
+        }
+        else {
+          // Assumed node_reference.  This assumption may change if more field
+          // types supported.
+          $sql = 'SELECT DISTINCT ' . $field . '_nid AS reference '
+             . 'FROM {field_data_' . $field . '} '
+             . 'WHERE ' . $field . '_nid IS NOT NULL ';
+        }
         if (!is_null($nid)) {
           $sql .= 'AND entity_id = :nid ';
           $args[':nid'] = $nid;
@@ -271,7 +263,15 @@ function nodeaccess_nodereference_array_filter($input) {
  * Implements hook_form_FORM_ID_alter().
  */
 function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $form_state) {
-  if ($form['#field']['type'] == 'node_reference' && $form['#instance']['entity_type'] == 'node') {
+  if (
+    (
+      ($form['#field']['type'] == 'entityreference' && $form['#field']['settings']['target_type'] == 'node')
+      ||
+      $form['#field']['type'] == 'node_reference'
+    )
+    &&
+    $form['#instance']['entity_type'] == 'node'
+  ) {
     $data = nodeaccess_nodereference_field_settings($form['#instance']['bundle'], $form['#field']['field_name']);
     $form['instance']['settings']['nodeaccess_nodereference'] = array(
       '#type' => 'fieldset',
@@ -393,6 +393,8 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_submit($form, &$
   $data = &$form_state['values']['instance']['settings']['nodeaccess_nodereference'];
   $field_name = &$form_state['values']['instance']['field_name'];
   $bundle_name = &$form_state['values']['instance']['bundle'];
+  $field_info = field_info_field($field_name);
+  $data['field_type'] = $field_info['type'];
   nodeaccess_nodereference_field_settings($bundle_name, $field_name, $data);
   nodeaccess_nodereference_check_cross_access();
   $type = &$form_state['values']['instance']['bundle'];
@@ -463,12 +465,22 @@ function nodeaccess_nodereference_node_access_records($node) {
           $items = field_get_items('node', $node, $field_name);
           if (!empty($items)) {
             foreach ($items as &$node_reference) {
-              if ($node_reference['nid']) {
+              $uid = NULL;
+              // @todo: change these statements to check $node_reference['field_type'] instead.
+              // node_reference
+              if (isset($node_reference['nid'])) {
+                $nid = $node_reference['nid'];
+              }
+              // entityreference
+              elseif (isset($node_reference['target_id'])) {
+                $nid = $node_reference['target_id'];
+              }
+              if ($nid) {
                 foreach (array_keys($data['referenced']) as $operation) {
                   nodeaccess_nodereference_add_grant(
                     $grants,
                     'nodeaccess_nodereference_' . $operation,
-                    $node_reference['nid'],
+                    $nid,
                     $data['priority'],
                     $data['referenced'][$operation]
                   );

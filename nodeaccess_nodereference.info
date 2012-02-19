@@ -1,4 +1,3 @@
 name = Node access node reference
 description = Provides per node access control with Node reference fields.
 core = 7.x
-dependencies[] = node_reference

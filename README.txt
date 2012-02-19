@@ -5,7 +5,7 @@ CONTENTS OF THIS FILE
 ----------------------
 
   * Introduction
-  * Dependencies
+  * Requirements
   * Installation
   * Usage
   
@@ -20,10 +20,12 @@ different grant configuration according to settings.
 Project page: http://drupal.org/project/nodeaccess_nodereference.
 
 
-DEPENDENCIES
+REQUIREMENTS
 ------------
-This module requires the Node reference module which is part of the References
-project: http://drupal.org/project/references
+This module requires a field module that can reference content.  Currently there 
+are two modules supported:
+http://drupal.org/project/entityreference
+http://drupal.org/project/references
 
 
 INSTALLATION
@@ -35,7 +37,7 @@ http://drupal.org/documentation/install/modules-themes/modules-7
 
 USAGE
 -----
-Create a Node reference field in a content type using the Field UI.  The field's
-configuration page will contain the settings for Node access node reference.
-For detailed instructions on using the Field UI see: 
+Create a field to reference content in a content type using the Field UI.  The 
+field's configuration page will contain the settings for Node access node 
+reference. For detailed instructions on using the Field UI see: 
 http://drupal.org/documentation/modules/field-ui
