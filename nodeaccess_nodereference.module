@@ -566,6 +566,15 @@ function nodeaccess_nodereference_field_settings($bundle_name, $field_name = NUL
     if (isset($data[$bundle_name][$field_name])) {
       return $data[$bundle_name][$field_name];
     }
+    else {
+      // Failsafe, get data from imported content types and store for future.
+      $instance = field_info_instance('node', $field_name, $bundle_name);
+      if (isset($instance['settings']['nodeaccess_nodereference'])) {
+        $data[$bundle_name][$field_name] = $instance['settings']['nodeaccess_nodereference'];
+        variable_set('nodeaccess_nodereference', $data);
+        return $data[$bundle_name][$field_name];
+      }
+    }
   }
   elseif (isset($data[$bundle_name])) {
     return $data[$bundle_name];
