@@ -381,27 +381,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
       '#default_value' => isset($data['priority']) ? $data['priority'] : 0,
       '#description' => t('It is recommended to always leave this set to 0.'),
     );
-    $form['#submit'][] = 'nodeaccess_nodereference_form_field_ui_field_edit_form_submit';
 
-  }
-}
-
-/**
- * Extra submit function for Node reference field config.
- */
-function nodeaccess_nodereference_form_field_ui_field_edit_form_submit($form, &$form_state) {
-  $data = &$form_state['values']['instance']['settings']['nodeaccess_nodereference'];
-  $field_name = &$form_state['values']['instance']['field_name'];
-  $bundle_name = &$form_state['values']['instance']['bundle'];
-  $field_info = field_info_field($field_name);
-  $data['field_type'] = $field_info['type'];
-  nodeaccess_nodereference_field_settings($bundle_name, $field_name, $data);
-  nodeaccess_nodereference_check_cross_access();
-  $type = &$form_state['values']['instance']['bundle'];
-  $nodes = node_load_multiple(NULL, array('type' => $type));
-  if ($nodes) {
-    // Because the field settings have changed we should prompt for a full rebuild.
-    node_access_needs_rebuild(TRUE);
   }
 }
 
@@ -409,8 +389,17 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_submit($form, &$
  * Implements hook_field_update_instance().
  */
 function nodeaccess_nodereference_field_update_instance($instance, $prior_instance) {
-  // Trigger discovery of settings in case this is an imported content type.
-  nodeaccess_nodereference_field_settings($instance['bundle'], $instance['field_name']);
+  $field_info = field_info_field($instance['field_name']);
+  $instance['settings']['nodeaccess_nodereference']['field_type'] = $field_info['type'];
+
+  nodeaccess_nodereference_field_settings($instance['bundle'], $instance['field_name'], $instance['settings']['nodeaccess_nodereference']);
+  nodeaccess_nodereference_check_cross_access();
+
+  $nodes = node_load_multiple(NULL, array('type' => $instance['bundle']));
+  if ($nodes) {
+    // Because the field settings have changed we should prompt for a full rebuild.
+    node_access_needs_rebuild(TRUE);
+  }
 }
 
 /**
@@ -573,15 +562,6 @@ function nodeaccess_nodereference_field_settings($bundle_name, $field_name = NUL
     }
     if (isset($data[$bundle_name][$field_name])) {
       return $data[$bundle_name][$field_name];
-    }
-    else {
-      // Failsafe, get data from imported content types and store for future.
-      $instance = field_info_instance('node', $field_name, $bundle_name);
-      if (isset($instance['settings']['nodeaccess_nodereference'])) {
-        $data[$bundle_name][$field_name] = $instance['settings']['nodeaccess_nodereference'];
-        variable_set('nodeaccess_nodereference', $data);
-        return $data[$bundle_name][$field_name];
-      }
     }
   }
   elseif (isset($data[$bundle_name])) {
