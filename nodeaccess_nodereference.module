@@ -395,7 +395,10 @@ function nodeaccess_nodereference_field_update_instance($instance, $prior_instan
   nodeaccess_nodereference_field_settings($instance['bundle'], $instance['field_name'], $instance['settings']['nodeaccess_nodereference']);
   nodeaccess_nodereference_check_cross_access();
 
-  $nodes = node_load_multiple(NULL, array('type' => $instance['bundle']));
+  $nodes = db_query("SELECT 1 FROM {node} WHERE type = :type", array(
+    ':type' => $instance['bundle'],
+  ))->fetchField();
+
   if ($nodes) {
     // Because the field settings have changed we should prompt for a full rebuild.
     node_access_needs_rebuild(TRUE);
