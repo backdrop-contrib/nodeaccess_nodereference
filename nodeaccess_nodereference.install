@@ -177,7 +177,7 @@ function nodeaccess_nodereference_update_7102() {
 }
 
 /**
- * Remove settings that should exist.
+ * Remove settings that shouldn't exist.
  */
 function nodeaccess_nodereference_update_7103() {
   $data = variable_get('nodeaccess_nodereference', array());
