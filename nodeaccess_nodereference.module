@@ -224,7 +224,7 @@ function nodeaccess_nodereference_get_referenced($nid = NULL) {
         if (!empty($data['field_type']) && $data['field_type'] == 'entityreference') {
           $sql = 'SELECT DISTINCT ' . $field . '_target_id AS reference '
              . 'FROM {field_data_' . $field . '} '
-             . 'WHERE ' . $field . '_nid IS NOT NULL ';
+             . 'WHERE ' . $field . '_target_id IS NOT NULL ';
         }
         else {
           // Assumed node_reference.  This assumption may change if more field
