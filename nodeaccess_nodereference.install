@@ -38,11 +38,7 @@ function nodeaccess_nodereference_requirements() {
 }
 
 /**
- * Implements hook_update_N().
- *
  * Unset author grants for updated installations.
- *
- * @see hook_update_N()
  */
 function nodeaccess_nodereference_update_6100() {
   // Set author grants to 0, unless already set.
@@ -62,11 +58,7 @@ function nodeaccess_nodereference_update_6100() {
 }
 
 /**
- * Implements hook_update_N().
- *
  * Update settings storage.
- *
- * @see hook_update_N()
  */
 function nodeaccess_nodereference_update_6101() {
   // Get all old settings and move them over to the new storage.
@@ -128,14 +120,10 @@ function nodeaccess_nodereference_update_6101() {
 }
 
 /**
- * Implements hook_update_N().
- *
  * Update settings.
- * Note this function is equivalent to nodeaccess_nodereference_update_6102
- *
- * @see hook_update_N()
  */
 function nodeaccess_nodereference_update_7100() {
+  // Note this function is equivalent to nodeaccess_nodereference_update_6102
   $data = variable_get('nodeaccess_nodereference', array());
   foreach ($data as $type => &$type_data) {
     foreach ($type_data as $field => &$field_data) {
@@ -151,11 +139,7 @@ function nodeaccess_nodereference_update_7100() {
 }
 
 /**
- * Implements hook_update_N().
- *
  * Removed settings for deleted fields.
- *
- * @see hook_update_N()
  */
 function nodeaccess_nodereference_update_7101() {
   $info = field_info_instances('node');
@@ -176,11 +160,7 @@ function nodeaccess_nodereference_update_7101() {
 }
 
 /**
- * Implements hook_update_N().
- *
  * Update settings to include the 'unused' setting.
- *
- * @see hook_update_N()
  */
 function nodeaccess_nodereference_update_7102() {
   $data = variable_get('nodeaccess_nodereference', array());
@@ -194,4 +174,24 @@ function nodeaccess_nodereference_update_7102() {
   variable_set('nodeaccess_nodereference', $data);
 
   return 'Updating settings.';
+}
+
+/**
+ * Remove settings that should exist.
+ */
+function nodeaccess_nodereference_update_7103() {
+  $data = variable_get('nodeaccess_nodereference', array());
+  foreach ($data as $type => $type_data) {
+    foreach ($type_data as $field => $field_data) {
+      if (!isset($data[$type][$field]['referenced'])) {
+        unset($data[$type][$field]);
+      }
+    }
+    if (empty($data[$type])) {
+      unset($data[$type]);
+    }
+  }
+  variable_set('nodeaccess_nodereference', $data);
+
+  return "Removed settings that shouldn't exist.";
 }
