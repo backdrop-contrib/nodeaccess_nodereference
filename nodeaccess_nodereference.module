@@ -272,7 +272,7 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
     &&
     $form['#instance']['entity_type'] == 'node'
   ) {
-    $data = nodeaccess_nodereference_field_settings($form['#instance']['bundle'], $form['#field']['field_name']);
+    $data = $form['#instance']['settings']['nodeaccess_nodereference'];
     $form['instance']['settings']['nodeaccess_nodereference'] = array(
       '#type' => 'fieldset',
       '#title' => t('Node access node reference'),
@@ -401,16 +401,21 @@ function nodeaccess_nodereference_field_update_instance($instance, $prior_instan
   ) {
      $instance['settings']['nodeaccess_nodereference']['field_type'] = $field_info['type'];
 
-     nodeaccess_nodereference_field_settings($instance['bundle'], $instance['field_name'], $instance['settings']['nodeaccess_nodereference']);
-     nodeaccess_nodereference_check_cross_access();
+     $old_settings = nodeaccess_nodereference_reduce_variable($prior_instance['settings']['nodeaccess_nodereference']);
+     $new_settings = nodeaccess_nodereference_reduce_variable($instance['settings']['nodeaccess_nodereference']);
 
-     $nodes = db_query("SELECT 1 FROM {node} WHERE type = :type", array(
-       ':type' => $instance['bundle'],
-     ))->fetchField();
+     if ($old_settings != $new_settings) {
+       nodeaccess_nodereference_field_settings($instance['bundle'], $instance['field_name'], $new_settings);
+       nodeaccess_nodereference_check_cross_access();
 
-     if ($nodes) {
-       // Because the field settings have changed we should prompt for a full rebuild.
-       node_access_needs_rebuild(TRUE);
+       $nodes = db_query("SELECT 1 FROM {node} WHERE type = :type", array(
+         ':type' => $instance['bundle'],
+       ))->fetchField();
+
+       if ($nodes) {
+         // Because the field settings have changed we should prompt for a full rebuild.
+         node_access_needs_rebuild(TRUE);
+       }
      }
   }
 }
@@ -485,7 +490,7 @@ function nodeaccess_nodereference_node_access_records($node) {
               elseif (isset($node_reference['target_id'])) {
                 $nid = $node_reference['target_id'];
               }
-              if ($nid) {
+              if ($nid && isset($data['referenced'])) {
                 foreach (array_keys($data['referenced']) as $operation) {
                   nodeaccess_nodereference_add_grant(
                     $grants,
@@ -499,7 +504,7 @@ function nodeaccess_nodereference_node_access_records($node) {
             }
           }
 
-          if ($data['unused']) {
+          if ($data['unused'] && isset($data['referenced'])) {
             foreach (array_keys($data['referenced']) as $operation) {
               // Add a dummy grant for node 0 to block other users' access.
               nodeaccess_nodereference_add_grant(
@@ -548,10 +553,7 @@ function nodeaccess_nodereference_node_access_records($node) {
   // Flag that the cache is not to be relied upon.
   variable_set('nodeaccess_nodereference_cache_needs_clear', TRUE);
 
-  if (!empty($grants)) {
-    return $grants;
-  }
-  return NULL;
+  return $grants;
 }
 
 /**
@@ -564,13 +566,24 @@ function nodeaccess_nodereference_node_access_records($node) {
  * @param $variable
  *   If set will update the value of the settings for this field.
  * @return
- *   The stored or updated value of the settings for this field.
+ *   The stored or updated value of the settings for this field, or array() if no settings found.
  */
 function nodeaccess_nodereference_field_settings($bundle_name, $field_name = NULL, $variable = NULL) {
   $data = variable_get('nodeaccess_nodereference', array());
+
   if (!is_null($field_name)) {
-    if (isset($variable)) {
-      $data[$bundle_name][$field_name] = $variable;
+    if (!is_null($variable)) {
+      if (!empty($variable)) {
+        $data[$bundle_name][$field_name] = $variable;
+      }
+      else {
+        // Variable is empty.
+        unset($data[$bundle_name][$field_name]);
+        // Clear empty bundle too.
+        if (empty($data[$bundle_name])) {
+          unset($data[$bundle_name]);
+        }
+      }
       variable_set('nodeaccess_nodereference', $data);
     }
     if (isset($data[$bundle_name][$field_name])) {
@@ -580,6 +593,58 @@ function nodeaccess_nodereference_field_settings($bundle_name, $field_name = NUL
   elseif (isset($data[$bundle_name])) {
     return $data[$bundle_name];
   }
+
+  // No data found
+  return array();
+}
+
+/**
+ * Reduce settings array to the bare minimum.
+ *
+ * @param $variable
+ *  The settings array.
+ * @return
+ *  The minimum array or FALSE if there is no array left to save.
+ */
+function nodeaccess_nodereference_reduce_variable($variable) {
+  // Filter the variable.
+  $variable = nodeaccess_nodereference_recursive_filter($variable);
+
+  // Create a test array without the volatile keys and filter again.
+  $test = $variable;
+  unset($test['referenced']['published']);
+  unset($test['author_published']);
+  unset($test['all_published']);
+  unset($test['unused']);
+  unset($test['priority']);
+  unset($test['field_type']);
+  $test = nodeaccess_nodereference_recursive_filter($test);
+
+  // Remove major areas of the variable if they are empty in the test array.
+  foreach ($variable as $key => $value) {
+    if (is_array($value) && empty($test[$key])) {
+      unset($variable[$key]);
+    }
+  }
+
+  // If 'referenced' is empty, then the variable can be considered empty.
+  if (empty($variable['referenced'])) {
+    return FALSE;
+  }
+
+  return $variable;
+}
+
+/**
+ * Recursively filter an array.
+ */
+function nodeaccess_nodereference_recursive_filter($array) {
+  foreach ($array as $key => $value) {
+    if (is_array($value)) {
+      $array[$key] = nodeaccess_nodereference_recursive_filter($value);
+    }
+  }
+  return array_filter($array);
 }
 
 /**
@@ -603,7 +668,7 @@ function nodeaccess_nodereference_check_cross_access() {
     foreach ($type_data as $field_name => $field_data) {
       foreach (array_keys($cross_access) as $check) {
         foreach (array_keys($cross_access) as $grant) {
-          if ($check != $grant && $field_data['referenced'][$check][$grant]) {
+          if ($check != $grant && !empty($field_data['referenced'][$check][$grant])) {
             $cross_access[$grant] = TRUE;
           }
         }
@@ -683,12 +748,5 @@ function nodeaccess_nodereference_node_access_explain($row) {
  * Implements hook_field_delete_instance().
  */
 function nodeaccess_nodereference_field_delete_instance($instance) {
-  $data = variable_get('nodeaccess_nodereference', array());
-  if (isset($data[$instance['bundle']][$instance['field_name']])) {
-    unset($data[$instance['bundle']][$instance['field_name']]);
-    if (empty($data[$instance['bundle']])) {
-      unset($data[$instance['bundle']]);
-    }
-    variable_set('nodeaccess_nodereference', $data);
-  }
+  nodeaccess_nodereference_field_settings($instance['bundle'], $instance['field_name'], FALSE);
 }
