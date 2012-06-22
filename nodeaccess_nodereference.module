@@ -491,13 +491,13 @@ function nodeaccess_nodereference_add_grant(&$grants, $realm, $gid, $priority, $
     );
   }
   // Add the grants needed, so as not to override previous iterations.
-  if (isset($settings['view']) && $settings['view']) {
+  if (!empty($settings['view'])) {
     $grants[$key]['grant_view'] = 1;
   }
-  if (isset($settings['update']) && $settings['update']) {
+  if (!empty($settings['update'])) {
     $grants[$key]['grant_update'] = 1;
   }
-  if (isset($settings['delete']) && $settings['delete']) {
+  if (!empty($settings['delete'])) {
     $grants[$key]['grant_delete'] = 1;
   }
   // Increase the priority if needed.
@@ -515,6 +515,10 @@ function nodeaccess_nodereference_node_access_records($node) {
   if (!empty($field_data)) {
     foreach ($field_data as $field_name => &$data) {
       if (!empty($data)) {
+
+        if (!isset($data['priority'])) {
+          $data['priority'] = 0;
+        }
 
         if (!empty($node->status) || !empty($data['referenced']['published'])) {
 
@@ -566,7 +570,7 @@ function nodeaccess_nodereference_node_access_records($node) {
         // but redundant calls will be correctly handled by the helper function:
         // nodeaccess_nodereference_add_grant().
         if (!empty($grants)) {
-          if (!empty($node->status) || !empty($data['author_published'])) {
+          if (!empty($data['author']) && (!empty($node->status) || !empty($data['author_published']))) {
             // Add author grants.
             nodeaccess_nodereference_add_grant(
               $grants,
@@ -576,7 +580,7 @@ function nodeaccess_nodereference_node_access_records($node) {
               $data['author']
             );
           }
-          if (!empty($node->status) || !empty($data['all_published'])) {
+          if (!empty($data['all']) && (!empty($node->status) || !empty($data['all_published']))) {
             // Add all grants.
             nodeaccess_nodereference_add_grant(
               $grants,
