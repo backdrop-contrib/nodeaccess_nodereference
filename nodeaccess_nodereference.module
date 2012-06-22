@@ -550,7 +550,7 @@ function nodeaccess_nodereference_node_access_records($node) {
             }
           }
 
-          if ($data['unused'] && isset($data['referenced'])) {
+          if (!empty($data['unused']) && isset($data['referenced'])) {
             foreach (array_keys($data['referenced']) as $operation) {
               // Add a dummy grant for node 0 to block other users' access.
               nodeaccess_nodereference_add_grant(
