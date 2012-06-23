@@ -195,3 +195,24 @@ function nodeaccess_nodereference_update_7103() {
 
   return "Removed settings that shouldn't exist.";
 }
+
+/**
+ * Reduce settings to essentials.
+ */
+function nodeaccess_nodereference_update_7104() {
+  $new_data = array();
+  $data = variable_get('nodeaccess_nodereference', array());
+
+  variable_del('nodeaccess_nodereference');
+
+  foreach ($data as $type => $type_data) {
+    foreach ($type_data as $field => $field_data) {
+      if (!empty($field_data)) {
+        $new_settings = nodeaccess_nodereference_reduce_variable($field_data);
+        nodeaccess_nodereference_field_settings($type, $field, $new_settings);
+      }
+    }
+  }
+
+  return "Reduced settings to essentials.";
+}
