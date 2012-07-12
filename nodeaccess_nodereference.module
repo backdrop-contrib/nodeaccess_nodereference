@@ -24,7 +24,12 @@ function nodeaccess_nodereference_node_grants($account, $op) {
     }
     else {
       // Cache is good.
-      $cached_grants = cache_get('nodeaccess_nodereference_' . $account->uid . '_' . $op);
+      if ($account->uid) {
+        $cached_grants = cache_get('nodeaccess_nodereference_' . $account->uid . '_' . $op);
+      }
+      else {
+        $cached_grants = cache_get('nodeaccess_nodereference_' . session_id() . '_' . $op);
+      }
     }
     if (empty($cached_grants)) {
       // There were no cached grants, calculate the grants.
@@ -197,6 +202,9 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
     // Use drupal cache to minimise how often this function needs to work out the grants.
     if ($account->uid) {
       cache_set('nodeaccess_nodereference_'. $account->uid .'_'. $op, $grants[$account->uid][$op]);
+    }
+    else {
+      cache_set('nodeaccess_nodereference_'. session_id() .'_'. $op, $grants[$account->uid][$op]);
     }
   }
   else {
