@@ -195,7 +195,9 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
     // It is unsafe to store incomplete grants in any caches.
     $grants[$account->uid][$op] = $rights;
     // Use drupal cache to minimise how often this function needs to work out the grants.
-    cache_set('nodeaccess_nodereference_'. $account->uid .'_'. $op, $grants[$account->uid][$op]);
+    if ($account->uid) {
+      cache_set('nodeaccess_nodereference_'. $account->uid .'_'. $op, $grants[$account->uid][$op]);
+    }
   }
   else {
     if (!$complete) {
