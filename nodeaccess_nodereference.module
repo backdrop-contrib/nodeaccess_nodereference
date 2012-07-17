@@ -217,44 +217,57 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
 }
 
 /**
- * Get all referenced nodes that are referenced in a Node access node reference
- * field.
+ * Get all referenced nodes that are referenced in a NANR related field.
+ *
+ * Due to the repeated usage of this function, an initial call to this in a page
+ * request will build a list of all the site's relevant references in static
+ * cache.  Subsequent calls will use the static cache.
  */
-function nodeaccess_nodereference_get_referenced($nid = NULL) {
-  $references = array();
-  $settings = variable_get('nodeaccess_nodereference', array());
-  foreach ($settings as $type => $fields) {
-    foreach ($fields as $field => $data) {
-      if (
-        isset($data['referenced']) &&
-        nodeaccess_nodereference_array_filter($data['referenced'])
-      ) {
-        $args = array();
-        // @todo: This !empty() can eventually be removed.
-        if (!empty($data['field_type']) && $data['field_type'] == 'entityreference') {
-          $sql = 'SELECT DISTINCT ' . $field . '_target_id AS reference '
-             . 'FROM {field_data_' . $field . '} '
-             . 'WHERE ' . $field . '_target_id IS NOT NULL ';
-        }
-        else {
-          // Assumed node_reference.  This assumption may change if more field
-          // types supported.
-          $sql = 'SELECT DISTINCT ' . $field . '_nid AS reference '
-             . 'FROM {field_data_' . $field . '} '
-             . 'WHERE ' . $field . '_nid IS NOT NULL ';
-        }
-        if (!is_null($nid)) {
-          $sql .= 'AND entity_id = :nid ';
-          $args[':nid'] = $nid;
-        }
-        $result = db_query($sql, $args);
-        foreach ($result as $row) {
-          $references[$row->reference] = $row->reference;
+function nodeaccess_nodereference_get_referenced($nid) {
+  $references = &drupal_static(__FUNCTION__);
+  if (empty($references)) {
+    $cache = cache_get('nodeaccess_nodereference_get_referenced');
+    if (!empty($cache->data)) {
+      $references = $cache->data;
+    }
+    if (empty($references)) {
+      // This is to prevent a legit 'empty' value being seen as an uncalculated 'empty' value.
+      $references['refs'] = array();
+      $settings = variable_get('nodeaccess_nodereference', array());
+      foreach ($settings as $type => $fields) {
+        foreach ($fields as $field => $data) {
+          if (
+            isset($data['referenced']) &&
+            nodeaccess_nodereference_array_filter($data['referenced'])
+          ) {
+            $args = array(':bundle' => $type);
+            if ($data['field_type'] == 'entityreference') {
+              $sql = 'SELECT DISTINCT entity_id, ' . $field . '_target_id AS reference '
+                 . 'FROM {field_data_' . $field . '} '
+                 . 'WHERE ' . $field . '_target_id IS NOT NULL '
+                 . "AND entity_type = 'node' "
+                 . 'AND bundle = :bundle ';
+            }
+            else {
+              // Assumed node_reference.  This assumption may change if more field
+              // types supported.
+              $sql = 'SELECT DISTINCT entity_id, ' . $field . '_nid AS reference '
+                 . 'FROM {field_data_' . $field . '} '
+                 . 'WHERE ' . $field . '_nid IS NOT NULL '
+                 . "AND entity_type = 'node' "
+                 . 'AND bundle = :bundle ';
+            }
+            $result = db_query($sql, $args);
+            foreach ($result as $row) {
+               $references['refs'][$row->entity_id][$row->reference] = $row->reference;
+            }
+          }
         }
       }
+      cache_set('nodeaccess_nodereference_get_referenced', $references);
     }
   }
-  return $references;
+  return !empty($references['refs'][$nid]) ? $references['refs'][$nid] : array();
 }
 
 /**
