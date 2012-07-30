@@ -267,7 +267,15 @@ function nodeaccess_nodereference_get_referenced($nid) {
       cache_set('nodeaccess_nodereference_get_referenced', $references);
     }
   }
-  return !empty($references['refs'][$nid]) ? $references['refs'][$nid] : array();
+  if ($nid && !empty($references['refs'][$nid])) {
+    return $references['refs'][$nid];
+  }
+  elseif (!$nid && !empty($references['refs'])) {
+    return call_user_func_array('array_merge', $references['refs']);
+  }
+  else {
+    return array();
+  }
 }
 
 /**
