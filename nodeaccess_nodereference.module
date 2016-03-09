@@ -241,7 +241,7 @@ function nodeaccess_nodereference_get_referenced($nid) {
             nodeaccess_nodereference_array_filter($data['referenced'])
           ) {
             $args = array(':bundle' => $type);
-            if ($data['field_type'] == 'entityreference') {
+            if (isset($data['field_type']) && $data['field_type'] == 'entityreference') {
               $sql = 'SELECT DISTINCT entity_id, ' . $field . '_target_id AS reference '
                  . 'FROM {field_data_' . $field . '} '
                  . 'WHERE ' . $field . '_target_id IS NOT NULL '
