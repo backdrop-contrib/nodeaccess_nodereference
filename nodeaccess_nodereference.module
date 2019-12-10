@@ -14,7 +14,7 @@ function nodeaccess_nodereference_node_grants($account, $op) {
   static $grants = array();
   // Check the static cache for grants.
   if (!isset($grants[$account->uid][$op])) {
-    // The static cache is empty, check the drupal cache.
+    // The static cache is empty, check the Backdrop cache.
     // First check if the cache can be trusted.
     if (state_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
       // Clear the cache.
@@ -138,7 +138,7 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
               $current_references[$reference][$operation] = $reference;
 
               // We don't want static caching in node_access() to intefere.
-              drupal_static_reset('node_access');
+              backdrop_static_reset('node_access');
 
               // Check node_access() and add the result to $known data.
               $node_access = node_access($operation, $reference_node, $account);
@@ -199,7 +199,7 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
     // We have grants worked out completely, so add them to the caches.
     // It is unsafe to store incomplete grants in any caches.
     $grants[$account->uid][$op] = $rights;
-    // Use drupal cache to minimise how often this function needs to work out the grants.
+    // Use backdrop cache to minimise how often this function needs to work out the grants.
     if ($account->uid) {
       cache_set('nodeaccess_nodereference_'. $account->uid .'_'. $op, $grants[$account->uid][$op]);
     }
@@ -224,7 +224,7 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
  * cache.  Subsequent calls will use the static cache.
  */
 function nodeaccess_nodereference_get_referenced($nid) {
-  $references = &drupal_static(__FUNCTION__);
+  $references = &backdrop_static(__FUNCTION__);
   if (empty($references)) {
     $cache = cache_get('nodeaccess_nodereference_get_referenced');
     if (!empty($cache->data)) {
