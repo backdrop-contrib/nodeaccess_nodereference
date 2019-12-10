@@ -16,10 +16,10 @@ function nodeaccess_nodereference_node_grants($account, $op) {
   if (!isset($grants[$account->uid][$op])) {
     // The static cache is empty, check the drupal cache.
     // First check if the cache can be trusted.
-    if (variable_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
+    if (state_get('nodeaccess_nodereference_cache_needs_clear', FALSE)) {
       // Clear the cache.
       cache_clear_all('nodeaccess_nodereference', 'cache', TRUE);
-      variable_del('nodeaccess_nodereference_cache_needs_clear');
+      state_set('nodeaccess_nodereference_cache_needs_clear', FALSE);
       $cached_grants = NULL;
     }
     else {
@@ -81,7 +81,7 @@ function nodeaccess_nodereference_calculate_grants(&$grants, $op, $account) {
   $do_cache = TRUE;
 
   // Get info about whether we need cross access checking for this $op.
-  $cross_access = variable_get(
+  $cross_access = state_get(
     'nodeaccess_nodereference_cross_access',
     array('view' => FALSE, 'update' => FALSE, 'delete' => FALSE)
   );
@@ -233,7 +233,7 @@ function nodeaccess_nodereference_get_referenced($nid) {
     if (empty($references)) {
       // This is to prevent a legit 'empty' value being seen as an uncalculated 'empty' value.
       $references['refs'] = array();
-      $settings = variable_get('nodeaccess_nodereference', array());
+      $settings = nodeaccess_nodereference_field_settings();
       foreach ($settings as $type => $fields) {
         foreach ($fields as $field => $data) {
           if (
@@ -249,8 +249,8 @@ function nodeaccess_nodereference_get_referenced($nid) {
                  . 'AND bundle = :bundle ';
             }
             else {
-              // Assumed node_reference.  This assumption may change if more field
-              // types supported.
+              // Assumed node_reference.  This assumption may change if more
+              // field types supported.
               $sql = 'SELECT DISTINCT entity_id, ' . $field . '_nid AS reference '
                  . 'FROM {field_data_' . $field . '} '
                  . 'WHERE ' . $field . '_nid IS NOT NULL '
@@ -305,7 +305,8 @@ function nodeaccess_nodereference_form_field_ui_field_edit_form_alter(&$form, $f
   ) {
     $data = isset($form['#instance']['settings']['nodeaccess_nodereference']) ?
       $form['#instance']['settings']['nodeaccess_nodereference'] : array();
-    $current = nodeaccess_nodereference_field_settings($form['#instance']['bundle'], $form['#instance']['field_name']);
+    $config = config('field.instance.node.' . $form['#instance']['bundle'] . '.' . $form['#instance']['field_name']);
+    $current = $config->get('settings.nodeaccess_nodereference');
 
     $form['instance']['settings']['nodeaccess_nodereference'] = array(
       '#type' => 'fieldset',
@@ -478,7 +479,6 @@ function nodeaccess_nodereference_field_update_instance($instance, $prior_instan
        array();
 
      if ($old_settings != $new_settings) {
-       nodeaccess_nodereference_field_settings($instance['bundle'], $instance['field_name'], $new_settings);
        nodeaccess_nodereference_check_cross_access();
 
        $nodes = db_query("SELECT 1 FROM {node} WHERE type = :type", array(
@@ -542,7 +542,7 @@ function nodeaccess_nodereference_add_grant(&$grants, $realm, $gid, $priority, $
  */
 function nodeaccess_nodereference_node_access_records($node) {
   $grants = array();
-  $field_data = nodeaccess_nodereference_field_settings($node->type);
+  $field_data = nodeaccess_nodereference_field_settings_for_bundle($node->type);
   if (!empty($field_data)) {
     foreach ($field_data as $field_name => &$data) {
       if (!empty($data)) {
@@ -628,51 +628,51 @@ function nodeaccess_nodereference_node_access_records($node) {
   }
 
   // Flag that the cache is not to be relied upon.
-  variable_set('nodeaccess_nodereference_cache_needs_clear', TRUE);
+  state_set('nodeaccess_nodereference_cache_needs_clear', TRUE);
 
   return $grants;
 }
 
 /**
- * Set and get nodeaccess nodereference field settings.
+ * Get nodeaccess nodereference field settings for a bundle.
  *
  * @param $bundle_name
  *   The name of the bundle.
- * @param $field_name
- *   The name of the field.
- * @param $variable
- *   If set will update the value of the settings for this field.
  * @return
- *   The stored or updated value of the settings for this field, or array() if no settings found.
+ *   The stored value of the settings for this field, or array() if no settings found.
  */
-function nodeaccess_nodereference_field_settings($bundle_name, $field_name = NULL, $variable = NULL) {
-  $data = variable_get('nodeaccess_nodereference', array());
+function nodeaccess_nodereference_field_settings_for_bundle($bundle_name) {
+  $instance_names = config_get_names_with_prefix('field.instance.node.' . $bundle_name);
+  $instances = config_load_multiple($instance_names);
 
-  if (!is_null($field_name)) {
-    if (!is_null($variable)) {
-      if (!empty($variable)) {
-        $data[$bundle_name][$field_name] = $variable;
-      }
-      else {
-        // Variable is empty.
-        unset($data[$bundle_name][$field_name]);
-        // Clear empty bundle too.
-        if (empty($data[$bundle_name])) {
-          unset($data[$bundle_name]);
-        }
-      }
-      variable_set('nodeaccess_nodereference', $data);
-    }
-    if (isset($data[$bundle_name][$field_name])) {
-      return $data[$bundle_name][$field_name];
+  $data = array();
+  foreach ($instances as $instance) {
+    if (isset($instance['settings']['nodeaccess_nodereference'])) {
+      $data[$instance['field_name']] = $instance['settings']['nodeaccess_nodereference'];
     }
   }
-  elseif (isset($data[$bundle_name])) {
-    return $data[$bundle_name];
+
+  return $data;
+}
+
+/**
+ * Get nodeaccess nodereference field settings.
+ *
+ * @return
+ *   The stored value of the settings for this field, or array() if no settings found.
+ */
+function nodeaccess_nodereference_field_settings() {
+  $instance_names = config_get_names_with_prefix('field.instance.node');
+  $instances = config_load_multiple($instance_names);
+
+  $data = array();
+  foreach ($instances as $instance) {
+    if (isset($instance['settings']['nodeaccess_nodereference'])) {
+      $data[$instance['bundle']][$instance['field_name']] = $instance['settings']['nodeaccess_nodereference'];
+    }
   }
 
-  // No data found
-  return array();
+  return $data;
 }
 
 /**
@@ -735,7 +735,8 @@ function nodeaccess_nodereference_recursive_filter($array) {
  * function that this needs to be done.
  */
 function nodeaccess_nodereference_check_cross_access() {
-  $data = variable_get('nodeaccess_nodereference', array());
+  $config = config('nodeaccess_nodereference.settings');
+  $data = $config->get('nodeaccess_nodereference');
   $cross_access = array(
     'view' => FALSE,
     'update' => FALSE,
@@ -752,7 +753,7 @@ function nodeaccess_nodereference_check_cross_access() {
       }
     }
   }
-  variable_set('nodeaccess_nodereference_cross_access', $cross_access);
+  state_set('nodeaccess_nodereference_cross_access', $cross_access);
 }
 
 /**
@@ -819,11 +820,4 @@ function nodeaccess_nodereference_node_access_explain($row) {
     }
 
   }
-}
-
-/**
- * Implements hook_field_delete_instance().
- */
-function nodeaccess_nodereference_field_delete_instance($instance) {
-  nodeaccess_nodereference_field_settings($instance['bundle'], $instance['field_name'], FALSE);
 }
