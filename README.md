@@ -2,7 +2,7 @@ Node access node reference
 ==========================
 
 Gives content access permissions to users if they have access to content that is
-referenced with node reference.  Checks view, update, and delete grant
+referenced with Node reference or Entity reference. Checks view, update, and delete grant
 operations, and can pass those on to the referencing content, or trigger a
 different grant configuration according to settings.
 
@@ -20,7 +20,7 @@ Installation
 
 - Install this module using the official Backdrop CMS instructions at
   <https://backdropcms.org/guide/modules>
-- Add a field of type 'node reference' or 'user reference' to your content type.
+- Add a field of type 'node reference' or 'entity reference' to your content type.
 
 Usage
 -----
