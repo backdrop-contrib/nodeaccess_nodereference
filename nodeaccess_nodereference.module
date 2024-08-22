@@ -735,15 +735,19 @@ function nodeaccess_nodereference_recursive_filter($array) {
  * function that this needs to be done.
  */
 function nodeaccess_nodereference_check_cross_access() {
-  $config = config('nodeaccess_nodereference.settings');
-  $data = $config->get('nodeaccess_nodereference');
+  $bundles = field_info_instances('node');
   $cross_access = array(
     'view' => FALSE,
     'update' => FALSE,
     'delete' => FALSE,
   );
-  foreach ($data as $type_name => $type_data) {
-    foreach ($type_data as $field_name => $field_data) {
+
+  foreach ($bundles as $bundle => $instances) {
+    foreach ($instances as $instance) {
+      if (empty($instance['settings']['nodeaccess_nodereference'])) {
+        continue;
+      }
+      $field_data = $instance['settings']['nodeaccess_nodereference'];
       foreach (array_keys($cross_access) as $check) {
         foreach (array_keys($cross_access) as $grant) {
           if ($check != $grant && !empty($field_data['referenced'][$check][$grant])) {
