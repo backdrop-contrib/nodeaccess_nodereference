@@ -15,7 +15,7 @@ function nodeaccess_nodereference_requirements($phase) {
     $requirements['node_reference'] = array(
       'title' => $t('Node reference module'),
       'severity' => REQUIREMENT_ERROR,
-      'description' => $t('You need a module to reference content.  Use either <em>Entity reference</em> or <em>References</em>.'),
+      'description' => $t('You need a module to reference content. Use either <em>Entity reference</em> or <em>References</em>.'),
     );
   }
   return $requirements;
